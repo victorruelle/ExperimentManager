@@ -5,6 +5,9 @@ import time
 import logging
 import shutil
 from distutils.dir_util import copy_tree
+from copy import deepcopy
+import wrapt
+import functools
 
 from utils import timestamp, setup_logger, pprint_dict, get_options
 from run import Run
@@ -123,7 +126,7 @@ class ExperimentManager(object):
 		
 		self.runs = {} # will contain the run instance, keys are run_ids. 
 		
-		self.captured_functions = [] # will hold the list of functions in which experiment parameters are injected
+		self.wrapped_functions = [] # will hold the list of functions in which experiment parameters are injected
 		
 		self.commands = {} # will hold the list of functions that can be called with experiment_manager_instance.run, keys are command names
 		
@@ -146,9 +149,6 @@ class ExperimentManager(object):
 			self.config = kwargs['config']
 		
 		self.verbose = verbose # Verbosity level for the experiment internals. 
-		
-		self._max_id_depth = 0 # internal state to make get_call_id more efficient
-		
 		
 		# Saving the project sources. Not Working yet. see todo
 		#if not self.ghost:
@@ -192,13 +192,13 @@ class ExperimentManager(object):
 		if run_id is None:
 			run_id = self.get_call_id()
 		if self.verbose : 
-			config_orig = self.config.copy()
+			config_orig = deepcopy(self.config)
 		self.config[run_id].update(config)
 		if self.verbose:
 			self.info("Updated config for run_id {} \n{} \n{}".format(run_id,pprint_dict(config_orig,output = 'return', name = 'Before'),pprint_dict(self.config,output = 'return', name = 'After')))
-		
-	
-	def capture(self,function, prefixes = None):
+			
+			
+	def capture(self,wrapped=None, prefixes=None):
 		''' Decorator to inject config parameters as default values in the a function.
 		
 		The injection will happen as follows :
@@ -206,56 +206,83 @@ class ExperimentManager(object):
 			- if no run_id is foud, it means that the captured function was called outside of a ex.run. We will only inject the shared parameters.
 			
 		'''
-		#self.debug_locals()
 		
-		if function in self.captured_functions:
-			return function
+		if wrapped is None:
+			return functools.partial(self.capture,
+					prefixes=prefixes)		
+		
+		if wrapped in self.wrapped_functions:
+			return wrapped
 			# Nothing needs to be done
 				
 		# Capturing the signature
-		sig = Signature(function)
+		sig = Signature(wrapped)
 		
-		# Defining the captured function : we inject parameters
-		def captured_function(*args,**kwargs):
+		# Defining the wrapped function
+		@wrapt.decorator
+		def wrapped_function(wrapped, instance, args, kwargs):
 			run_id = self.get_call_id()
 			options = get_options(self.config[-1], run_dict = None if run_id is -1 else self.config[run_id], prefixes = prefixes)
 			args, kwargs = sig.construct_arguments(args, kwargs, options,False)
-			result = function(*args, **kwargs)
+			result = wrapped(*args, **kwargs)
 			return result
 		
 		# Recoverng the original name
-		captured_function.__name__ = function.__name__
+		wrapped_function.__name__ = wrapped.__name__
 		
 		# Adding to the list of captured functions
-		self.captured_functions.append(captured_function)
+		self.wrapped_functions.append(wrapped_function(wrapped))
 		
 		# Logging the result
-		self.info('Captured function {} with prefixes {}'.format(function.__name__,prefixes))
+		self.info('Captured function {} with prefixes {}'.format(wrapped.__name__,prefixes))
 		
-		return captured_function		
-
+		return wrapped_function(wrapped)
 		
 	'''
 	Runs
 	'''
 	
-		
-	def command(self,function, prefixes = None):
+	def command(self,wrapped=None, prefixes=None):
 		''' Decorator to add a function to list of callable commands. Also applies inject_config.			
 		'''
-		self.debug_locals()
+		
+		if wrapped is None:
+			return functools.partial(self.capture,
+					prefixes=prefixes)		
 		
 		# Checking that there is no other command by the same name. Better way to handle ? (maybe use an actual id instaed of function name)
-		if function.__name__ in self.commands:
-			raise Exception('a function going by the same name was already added : {}'.format(function.__name__))
-			
-		# Capturing the command function
-		captured_function = self.capture(function,prefixes)
+		if wrapped.__name__ in self.commands:
+			raise Exception('a function going by the same name was already added : {}'.format(wrapped.__name__))
+		
+		if wrapped in self.wrapped_functions:
+			return wrapped
+			# Nothing needs to be done
+				
+		# Capturing the signature
+		sig = Signature(wrapped)
+		
+		# Defining the wrapped function
+		@wrapt.decorator
+		def wrapped_function(wrapped, instance, args, kwargs):
+			run_id = self.get_call_id()
+			options = get_options(self.config[-1], run_dict = None if run_id is -1 else self.config[run_id], prefixes = prefixes)
+			args, kwargs = sig.construct_arguments(args, kwargs, options,False)
+			result = wrapped(*args, **kwargs)
+			return result
+		
+		# Recoverng the original name
+		wrapped_function.__name__ = wrapped.__name__
+		
+		# Adding to the list of captured functions
+		self.wrapped_functions.append(wrapped_function(wrapped))
 		
 		# Adding to the list of commands
-		self.commands.update({function.__name__ : captured_function})
+		self.commands.update({wrapped_function.__name__ : wrapped_function(wrapped)})
 		
-		return captured_function
+		# Logging the result
+		self.info('Captured function {} with prefixes {}'.format(wrapped.__name__,prefixes))
+		
+		return wrapped_function(wrapped)
 		
 		
 	def add_command(self,function):
@@ -268,7 +295,7 @@ class ExperimentManager(object):
 			raise Exception('a function going by the same name was already added : {}'.format(function.__name__))
 			
 		# Adding to the list of commands
-		self.commands.update({function.__name__ : captured_function})
+		self.commands.update({function.__name__ : function})
 		
 
 		
@@ -287,9 +314,6 @@ class ExperimentManager(object):
 	
 		# Creating name and id for the run in a safe way.
 		run_name, run_id = self.runs_versions.add('{} {}'.format(command_name,timestamp()), return_id = True)
-		
-		# Updating internal max id call depth value
-		self._max_id_depth = max(self._max_id_depth,len(inspect.stack()))
 		
 		# Creating the associated directories and paths
 		if not self.ghost :
@@ -318,7 +342,9 @@ class ExperimentManager(object):
 			self.metrics[run_id] = MetricsManager(run_id,run_metrics_dir)
 		
 		# Adding a config entry
-		self.config.update({run_id:update_dict if update_dict is not None else {}})
+		self.config[run_id] = {}
+		if update_dict is not None:
+			self.add_config(update_dict,run_id) # need to specify the run_id because, at this point, the run_id has not yet been declared in the run method
 		
 		# Getting the actual command function
 		command = self.commands[command_name]
@@ -375,7 +401,7 @@ class ExperimentManager(object):
 	'''
 		
 
-	def log_scalar(self, metric_name, value, step, run_id = None):
+	def log_scalar(self, metric_name, value, step = None, run_id = None):
 		"""
 		Add a new measurement. If shared is set to true, the measurement will go to the shared metrics, otherwise it will be placed in the current run's metrics.
 		"""
@@ -504,25 +530,23 @@ class ExperimentManager(object):
 	Support functions
 	'''
 		
-	def get_call_id(self,target_filename = None, target_function = 'run', target_field = 'run_id'):
+	def get_call_id(self):
 		''' Look through the stack trace for to retrieve a local value in a specific function of a specific file.
-		'''
+		'''	
 		
 		stack = inspect.stack()
 
-		if target_filename is None:
-			target_filename = os.path.abspath(__file__)
+		target_filename = os.path.abspath(__file__)
 			
 		run_id = -1
 		
-		for i in range(0,self._max_id_depth): # going backwards since the run call should be really early on
-			j = len(stack)-1-i
+		for i in range(len(stack)-1,-1,-1): # going backwards since the run call should be really early on
 			frame = stack[i]
 			function = frame.function
 			filename = os.path.abspath(frame.filename)
-			if filename == target_filename and function == target_function and target_field in frame.frame.f_locals:
-				run_id = frame.frame.f_locals[target_field]
-				#break # we comment this line to support nested calls to run. We want to recover the last call id!
+			if filename == target_filename and function in ['run','run_existing'] and 'run_id' in frame.frame.f_locals:
+				run_id = frame.frame.f_locals['run_id']
+				break
 		
 		self.logger.info('get call id for {} found {}'.format(inspect.stack()[1][3],run_id))
 		return run_id

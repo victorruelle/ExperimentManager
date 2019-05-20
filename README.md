@@ -7,7 +7,9 @@ ExperimentManager does not support concurrency! When initializing an ExperimentM
 ## Things to test 
 
 - [ ] Checks the parameter injection. Seems to not work, maybe because of the max_depth feature (reproduce : ghost = True).
-- [ ] The metrics logging. Auto increment.
+- [x] The metrics logging. Auto increment.
+- [ ] Make sure that run_id is also picked up when running with run_existing!
+- [ ] Thorough check of the new get_options
 
 ## Things to work on
 

@@ -1,37 +1,55 @@
-from experiment import *
+from experiment import ExperimentManager
 
 manager = ExperimentManager('test',ghost=False)
-#pprint_dict(manager.__dict__)
 
 @manager.capture
-def a_function(name,value = 0):
+def printing_function(name,value = 0):
+	print('Entering printing function')
 	print('name',name)
 	print('value',value)
+	print('Exiting printing function')
 	
 	
 @manager.command
-def a_command(name,value = 0):
-	print('Entering command a_command')
-	print('name',name)
-	print('value',value)
-	manager.save([1,2,3,4,5],'a_list')
-	manager.log_scalar('time',1,0)
-	manager.log_scalar('time',1,1)
-	manager.log_scalar('time',1,2)
-	manager.log_scalar('time',1,3)
-	manager.log_scalar('time',1,4)
-	a_function(**{})
+def metrics_logging(name,value = 0):
+	print('Entering metrics_logging command')
+	for i in range(50):
+		manager.log_scalar('time',i**2,i)
+	for i in range(50):
+		manager.log_scalar('time auto_increment',i**2)
+	print('Exiting metrics_logging command')
+
 	
+@manager.capture(prefixes=['details.towns','details.age'])
+def saving(towns,age):
+	print('Entering saving, towns is {} and age is {}'.format(towns,age))
+	print('Saving the towns dict without any parameters')
+	manager.save(towns,'my towns')
+	print('Saving the towns dict with a txt extension')
+	manager.save(towns,'my towns.txt')
+	import numpy as np
+	an_array = np.random.uniform((32,4,2))
+	manager.save(an_array,'a numpy array')
+
 @manager.command
-def test_sacred():
-		
-	manager.run('a_command', update_dict = {'name':'Pierre'})
+def changing_configs():
+	print('Entering command changing config')
+	print('Current run id is {}'.format(manager.get_call_id()))
+	print('Config is : {}'.format(manager.config))
+	print('Running print without any change')
+	printing_function()
+	print('Updating confing')
+	manager.add_config( {'name':'A local config Victor'} )
+	print('Config is : {}'.format(manager.config))
+	printing_function()
+	print('Updating confing')
+	manager.add_config( {'name':'A global config Victor'}, -1 )
+	print('Config is : {}'.format(manager.config))
+	printing_function()
+	print('Exiting command changing config')
 
-	manager.add_config( {'name':'Victor'} )
 
-	a_function()
-	
-def test():
+def merging_configs():
 	
 	from utils import get_options
 	
@@ -65,15 +83,32 @@ def test():
 	
 	return d
 
+
 if __name__ == "__main__":
 	print("Hi, let's start an experiment!")
 	manager.logger.info("Here's a log message")
-	d = test()
-	manager.save(d,'options_dict')
+	
+	d = { 
+		"name" : "Julie",
+		"value" : 1,
+		"details" : {
+			"age" : 22,
+			"towns" : {
+				0 : "Brussels",
+				1 : "Paris"
+				}
+			}	
+		}
+	
 	manager.add_config(d)
-	manager.run('a_command')
-	manager.run('a_command',update_dict= { "name" : "Pierre" })
-	manager.run('test_sacred')
+	
+	print('Running command changing_configs')
+	manager.run('changing_configs')
+	print('Running command changing_configs with Pierre update_dict')
+	manager.run('changing_configs',update_dict= { "name" : "Pierre" })
+	print('Running metrics_logging')
+	manager.run('metrics_logging')
+	saving()
 	print("Bye!")
 	manager.close()
 	print('Should not be captured')

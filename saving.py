@@ -1,10 +1,10 @@
 import threading 
 import os
-from keras.models import Model, save_model
+#from keras.models import Model, save_model
 from superjson import json
 from numpy import ndarray, save as np_save
-from tensorflow import Tensor
-from keras.backend import eval
+#from tensorflow import Tensor
+#from keras.backend import eval
 import inspect
 import logging
 
@@ -26,7 +26,7 @@ class Saver():
 		self.savers['json'] = Method(save_json,'json','json')
 		self.savers['numpy'] = Method(save_numpy,'numpy','npy')
 		self.savers['str'] = Method(save_str,'string','txt')
-		self.savers['keras'] = Method(save_keras,'keras','h5')
+		#self.savers['keras'] = Method(save_keras,'keras','h5')
 		
 		self.logger = logger if logger is not None else logging.getLogger('ExperimentSaver',level = logging.INFO)
 		
@@ -66,21 +66,21 @@ class Saver():
 			'''
 			Converting types
 			'''
-			if isinstance(obj,Tensor):
-				try:
-					obj = eval(obj)
-				except:
-					self.logger.warn('in Saver, Tensor could not be evaluated, string representation will be used instead...')
-					obj = str(obj)				
+			#if isinstance(obj,Tensor):
+			#	try:
+			#		obj = eval(obj)
+			#	except:
+			#		self.logger.warn('in Saver, Tensor could not be evaluated, string representation will be used instead...')
+			#		obj = str(obj)				
 			
 			'''
 			Finding a method
 			'''
 		
-			if isinstance(obj,Model):
-				method = 'keras'
+			#if isinstance(obj,Model):
+			#	method = 'keras'
 				
-			elif isinstance(obj,str):
+			if isinstance(obj,str):
 				method = 'string'
 			
 			elif isinstance(obj,list) or isinstance(obj,ndarray):
@@ -188,8 +188,8 @@ Predefined saving methods
 def savefig(fig,path,*args,**kwargs):
 	fig.savefig(path,*args,**kwargs)
 	
-def save_keras(model,path):
-	save_model(model,path)
+#def save_keras(model,path):
+#	save_model(model,path)
 	
 def save_str(message,path):
 	with open(path,'w') as output:
