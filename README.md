@@ -9,8 +9,8 @@ ExperimentManager does not support concurrency! When initializing an ExperimentM
 - [ ] fix the stoud capturing flush method, was going crazy when I did manager.main_logger.info even though main logger had been renamed internally to logger
 - [ ] create a smarter metrics logging method, should at least support auto-indexing of values. Using a class with time etc.
 - [ ] add tensorboard support and add all the same metrics logging functions.
-- [ ] add_config : add support for specific values in prefix ? not just dictionaries. 
-- [x] improve the efficiency of get_call_id, I could record the deepest stack level when capturing functions to avoid going throug the entire stack everytime. Also pass ids in nested function calls whenever possible to avoid unnecassary calls.
+- [x] add_config : add support for specific values in prefix ? not just dictionaries. 
+- [ ] improve the efficiency of get_call_id, I could record the deepest stack level when capturing functions to avoid going throug the entire stack everytime. Also pass ids in nested function calls whenever possible to avoid unnecassary calls.
 - [ ] implement self.ghost, I've bypassed it sometimes for now
 - [ ] add a method to create a run so that you can do self.run with the same runner multiple times
 - [ ] Handle nested calls to ExperimentManager.run, last id should be kept, not the first one.
