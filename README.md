@@ -13,7 +13,7 @@ ExperimentManager does not support concurrency! When initializing an ExperimentM
 - [x] improve the efficiency of get_call_id, I could record the deepest stack level when capturing functions to avoid going throug the entire stack everytime. Also pass ids in nested function calls whenever possible to avoid unnecassary calls.
 - [ ] implement self.ghost, I've bypassed it sometimes for now
 - [ ] add a method to create a run so that you can do self.run with the same runner multiple times
-- [ ] Handle or prevent nested calls to ExperimentManager.run (the id found will be that of the parent caller as of now).
+- [ ] Handle nested calls to ExperimentManager.run, last id should be kept, not the first one.
 - [ ] Always make sure to add the run_id when logging for : save, add_config, run, etc.
 - [ ] Fix the name of captured commands/functions. It still doesn't seem right.
 - [ ] Implement add_sources. Code from polyrely should work easily.
