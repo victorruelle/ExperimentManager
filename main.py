@@ -1,6 +1,6 @@
 from experiment import *
 
-manager = ExperimentManager('test')
+manager = ExperimentManager('test',ghost=False)
 #pprint_dict(manager.__dict__)
 
 @manager.capture
@@ -68,7 +68,6 @@ def test():
 if __name__ == "__main__":
 	print("Hi, let's start an experiment!")
 	manager.logger.info("Here's a log message")
-	manager.std_logger.info("Here's a log message from the std logger")
 	d = test()
 	manager.save(d,'options_dict')
 	manager.add_config(d)

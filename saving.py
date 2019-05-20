@@ -147,7 +147,7 @@ class VersionsHandler(object):
 		self.version = {}
 		self.lock = threading.Lock()
 		
-	def add(self,name, id = False):
+	def add(self,name, return_id = False):
 		try :
 			self.lock.acquire()
 			if name in self.version:
@@ -155,7 +155,7 @@ class VersionsHandler(object):
 				name += ' ({})'.format(self.version[name])
 			else:
 				self.version[name] = 0
-			if id:
+			if return_id:
 				output = (name,len(self))
 			else:
 				output = name

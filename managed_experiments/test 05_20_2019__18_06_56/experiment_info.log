@@ -1,0 +1,54 @@
+2019-05-20 18:06:56,116 - INFO -- Finished setting up Experiment! Configuration is  :
+    ghost : False
+    config :
+        -1 :
+    runs_versions : None
+    saving_versions : None
+    experiment_dir : C:\Users\Victor Ruelle\Documents\ASTAR\ExperimentManager\managed_experiments\test 05_20_2019__18_06_56
+    experiment_name : test 05_20_2019__18_06_56 (0)
+    project_dir : C:\Users\Victor Ruelle\Documents\ASTAR\ExperimentManager
+    experiments_dir : C:\Users\Victor Ruelle\Documents\ASTAR\ExperimentManager\managed_experiments
+    name : test
+
+2019-05-20 18:06:56,116 - INFO -- Captured function a_function with prefixes None
+2019-05-20 18:06:56,116 - INFO -- Captured function a_command with prefixes None
+2019-05-20 18:06:56,116 - INFO -- Captured function test_sacred with prefixes None
+2019-05-20 18:06:56,116 - INFO -- Here's a log message
+2019-05-20 18:06:56,132 - INFO -- Saver saved C:\Users\Victor Ruelle\Documents\ASTAR\ExperimentManager\managed_experiments\test 05_20_2019__18_06_56\saved_files\options_dict.json
+2019-05-20 18:06:56,132 - INFO -- Updated config for run_id -1 
+Before :
+    -1 :
+        value : 1
+        name : Julie
+        details :
+            towns :
+                1 : Paris
+                0 : Tel-Aviv
+            age : 21
+ 
+After :
+    -1 :
+        value : 1
+        name : Julie
+        details :
+            towns :
+                1 : Paris
+                0 : Tel-Aviv
+            age : 21
+
+2019-05-20 18:06:56,132 - INFO -- Settig up environment for new run using command a_command and update_dict None
+2019-05-20 18:06:56,132 - INFO -- Finished creating run, __dict__ :
+    runs_lock : <unlocked _thread.lock object at 0x000001E561777878>
+    runs_info :
+    status : None
+    results :
+    logger : <Logger a_command 05_20_2019__18_06_56 (INFO)>
+    metrics_dir : C:\Users\Victor Ruelle\Documents\ASTAR\ExperimentManager\managed_experiments\test 05_20_2019__18_06_56\saved_runs\a_command 05_20_2019__18_06_56\saved_metrics
+    save_dir : C:\Users\Victor Ruelle\Documents\ASTAR\ExperimentManager\managed_experiments\test 05_20_2019__18_06_56\saved_runs\a_command 05_20_2019__18_06_56\saved_files
+    run_dir : C:\Users\Victor Ruelle\Documents\ASTAR\ExperimentManager\managed_experiments\test 05_20_2019__18_06_56\saved_runs\a_command 05_20_2019__18_06_56
+    name : a_command 05_20_2019__18_06_56
+    id : 0
+    command : <function ExperimentManager.capture.<locals>.captured_function at 0x000001E561816268>
+
+2019-05-20 18:06:56,132 - INFO -- Startig run for command a_command with id 0 and configration
+2019-05-20 18:06:56,148 - INFO -- Saver saved C:\Users\Victor Ruelle\Documents\ASTAR\ExperimentManager\managed_experiments\test 05_20_2019__18_06_56\saved_files\a_list.npy

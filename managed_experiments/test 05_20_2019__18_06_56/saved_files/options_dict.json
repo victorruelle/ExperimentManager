@@ -1,0 +1,11 @@
+{
+    "details": {
+        "age": 21,
+        "towns": {
+            "0": "Tel-Aviv",
+            "1": "Paris"
+        }
+    },
+    "name": "Julie",
+    "value": 1
+}

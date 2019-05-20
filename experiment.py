@@ -3,12 +3,15 @@ import os
 import sys
 import time
 import logging
+import shutil
+from distutils.dir_util import copy_tree
 
 from utils import timestamp, setup_logger, pprint_dict, get_options
 from run import Run
 from signature import Signature
 from stdout_capturing import StreamToLogger
 from saving import Saver, VersionsHandler
+from metrics import MetricsManager
 
 class ExperimentManager(object):
 
@@ -27,7 +30,7 @@ class ExperimentManager(object):
 		self.name = name
 		
 		# Setting the experiment mode. Ghost => nothing will be written (no directories, saves etc.).
-		self.ghost = False
+		self.ghost = False if not 'ghost' in kwargs else kwargs['ghost']
 		
 		# Checking if we are creating an experiment from a specific configuration
 		self._force = '_force' in kwargs and kwargs['_force']
@@ -41,7 +44,7 @@ class ExperimentManager(object):
 		
 		# Finding the experiments directory in which to create this specific experiment.
 		if experiments_dir is None:
-			experiments_dir = os.path.join(self.project_dir,'minisacred_experiments')
+			experiments_dir = os.path.join(self.project_dir,'managed_experiments')
 		self.experiments_dir = experiments_dir
 		
 		if not os.path.isdir(self.experiments_dir):
@@ -60,8 +63,8 @@ class ExperimentManager(object):
 				self.experiment_dir = experiment_dir
 				self.experiment_name = '{} ({})'.format(experiment_name,index)
 			else:
-				experiment_name = kwargs['experiment_name']
-				experiment_dir = kwargs['experiment_dir']
+				self.experiment_name = kwargs['experiment_name']
+				self.experiment_dir = kwargs['experiment_dir']
 			
 			# Creating subdirectories for saved files and saved metrics
 			self.save_dir = os.path.join(self.experiment_dir,'saved_files')
@@ -70,6 +73,16 @@ class ExperimentManager(object):
 			os.makedirs(self.metrics_dir,exist_ok=True)
 			self.runs_dir = os.path.join(self.experiment_dir,'saved_runs')
 			os.makedirs(self.runs_dir,exist_ok=True)
+			self.sources_dir = os.path.join(self.experiment_dir,'saved_sources')
+			os.makedirs(self.sources_dir,exist_ok=True)
+			
+		else:
+			self.experiment_name = None
+			self.experiment_dir = None
+			self.save_dir = None
+			self.metrics_dir = None
+			self.runs_dir = None
+			self.sources_dir = None
 		
 		
 		# Setting up loggers
@@ -79,16 +92,17 @@ class ExperimentManager(object):
 		self.debugger = setup_logger('minisacred_debug',debug_logger_path, level = logging.DEBUG)
 		
 		## Redirecting stdout and stderr to an unformatted logger
-		std_logger_path = os.path.join(self.experiment_dir,'std_capture.log') if not self.ghost else None
-		self.std_logger = setup_logger('std',std_logger_path,format = False)
-
-		self.stdout_orig = sys.stdout
-		stdout_capture = StreamToLogger(self.std_logger,logging.INFO, std_orig = self.stdout_orig)
-		sys.stdout = stdout_capture
-		
-		self.stderr_orig = sys.stderr
-		stderr_capture = StreamToLogger(self.std_logger,logging.ERROR, std_orig = self.stderr_orig)
-		sys.stderr = stderr_capture
+		if not self.ghost:
+			std_logger_path = os.path.join(self.experiment_dir,'std_capture.log') if not self.ghost else None
+			self.std_logger = setup_logger('std',std_logger_path,format = False)
+			
+			self.stdout_orig = sys.stdout
+			stdout_capture = StreamToLogger(self.std_logger,logging.INFO, std_orig = self.stdout_orig)
+			sys.stdout = stdout_capture
+			
+			self.stderr_orig = sys.stderr
+			stderr_capture = StreamToLogger(self.std_logger,logging.ERROR, std_orig = self.stderr_orig)
+			sys.stderr = stderr_capture
 		
 		# Initializing empty variables
 		
@@ -113,12 +127,13 @@ class ExperimentManager(object):
 		
 		self.commands = {} # will hold the list of functions that can be called with experiment_manager_instance.run, keys are command names
 		
-		self.metrics = { "shared" : {} } # will contain MetricsLogers for each run as well as one that is global ('shared') 
+		if not self.ghost:
+			self.metrics = { -1 : MetricsManager(-1, self.metrics_dir) } # will contain MetricsLoggers for each run as well as one that is global (-1) 
 		
 		
 		if not self._resumed:
 			
-			self.config = { "shared" : {} } # will contain Configuration dictionnaries for each run as well as one that is global ('shared')
+			self.config = { -1 : {} } # will contain Configuration dictionnaries for each run as well as one that is global (-1)
 		
 			self.experiment_info = None # NOT IMPLEMENTED. Optionnal way of manually addin information to an experiment.
 		
@@ -132,11 +147,21 @@ class ExperimentManager(object):
 		
 		self.verbose = verbose # Verbosity level for the experiment internals. 
 		
+		self._max_id_depth = 0 # internal state to make get_call_id more efficient
+		
+		
+		# Saving the project sources. Not Working yet. see todo
+		#if not self.ghost:
+		#	self.save_project_sources()
 		
 		# logging the end of the setup
 		self.info('Finished setting up Experiment! Configuration is {}'.format(pprint_dict(self.get_config(),output='return',name='')))
 		
-		
+	
+	'''
+	Messages
+	'''
+	
 	def info(self,message):
 		if self.verbose:
 			self.logger.info(message)
@@ -145,20 +170,30 @@ class ExperimentManager(object):
 		if self.verbose:
 			self.debugger.info(message)
 	
-	def debug_locals(self,locals_dict, limit = 2):
+	def debug_locals(self, limit = 2):
 		if self.verbose:
+			stack = inspect.stack()
+			locals_dict = stack[1].frame.f_locals
 			cout = pprint_dict(locals_dict,limit=limit,output='return', name = '')
-			self.debug('{} - arguments on call \n{}'.format(inspect.stack()[1][3],cout))
+			self.debug('{} - arguments on call \n{}'.format(stack[1][3],cout))
+	
+	
+	'''
+	Configurations
+	'''
+		
 		
 	def add_config(self,config,run_id = None):
-		self.debug_locals(locals())
+		self.debug_locals()
+		
+		if self.ghost:
+			return
 		
 		if run_id is None:
-			run_id = ExperimentManager.get_call_id(logger=self.debugger)
-		id = run_id if run_id is not None else 'shared'
+			run_id = self.get_call_id()
 		if self.verbose : 
 			config_orig = self.config.copy()
-		self.config[id].update(config)
+		self.config[run_id].update(config)
 		if self.verbose:
 			self.info("Updated config for run_id {} \n{} \n{}".format(run_id,pprint_dict(config_orig,output = 'return', name = 'Before'),pprint_dict(self.config,output = 'return', name = 'After')))
 		
@@ -171,7 +206,7 @@ class ExperimentManager(object):
 			- if no run_id is foud, it means that the captured function was called outside of a ex.run. We will only inject the shared parameters.
 			
 		'''
-		#self.debug_locals(locals())
+		#self.debug_locals()
 		
 		if function in self.captured_functions:
 			return function
@@ -182,8 +217,8 @@ class ExperimentManager(object):
 		
 		# Defining the captured function : we inject parameters
 		def captured_function(*args,**kwargs):
-			run_id = ExperimentManager.get_call_id(logger=self.debugger)
-			options = get_options(self.config['shared'], run_dict = None if run_id is None else self.config[run_id], prefixes = prefixes)
+			run_id = self.get_call_id()
+			options = get_options(self.config[-1], run_dict = None if run_id is -1 else self.config[run_id], prefixes = prefixes)
 			args, kwargs = sig.construct_arguments(args, kwargs, options,False)
 			result = function(*args, **kwargs)
 			return result
@@ -199,59 +234,51 @@ class ExperimentManager(object):
 		
 		return captured_function		
 
-
+		
+	'''
+	Runs
+	'''
+	
+		
 	def command(self,function, prefixes = None):
 		''' Decorator to add a function to list of callable commands. Also applies inject_config.			
 		'''
-		self.debug_locals(locals())
+		self.debug_locals()
 		
 		# Checking that there is no other command by the same name. Better way to handle ? (maybe use an actual id instaed of function name)
 		if function.__name__ in self.commands:
 			raise Exception('a function going by the same name was already added : {}'.format(function.__name__))
 			
 		# Capturing the command function
-		capture_function = self.capture(function,prefixes)
+		captured_function = self.capture(function,prefixes)
 		
 		# Adding to the list of commands
-		self.commands.update({function.__name__ : capture_function})
-
-
-	def log_scalar(self, metric_name, value, step, shared = False):
-		"""
-		Add a new measurement. If shared is set to true, the measurement will go to the shared metrics, otherwise it will be placed in the current run's metrics.
-		"""
-		self.debug_locals(locals())
+		self.commands.update({function.__name__ : captured_function})
 		
-		# Find the id of the desired metrics set
-		if not shared:
-			id = ExperimentManager.get_call_id(logger=self.debugger)
-		if shared or id is None:
-			id = 'shared'
+		return captured_function
 		
-		# Creating a new metrics logger if needed
-		if metric_name not in self.metrics[id]:
-			metrics_dir = self.metrics_dir if id=='shared' else self.runs[id].metrics_dir
-			metric_path = os.path.join(metrics_dir,'{}.csv'.format(metric_name))
-			self.metrics[id][metric_name] = setup_logger('{} {}'.format(id,metric_name),metric_path,format = False)
+		
+	def add_command(self,function):
+		''' Add a function to the list of commands while bypassing the config capturing procedure.
+		'''
+		self.debug_locals()
+		
+		# Checking that there is no other command by the same name. Better way to handle ? (maybe use an actual id instaed of function name)
+		if function.__name__ in self.commands:
+			raise Exception('a function going by the same name was already added : {}'.format(function.__name__))
 			
-		# Adding a line to the log file
-		self.metrics[id][metric_name].info('{};{}'.format(step,value))
+		# Adding to the list of commands
+		self.commands.update({function.__name__ : captured_function})
 		
+
 		
-	def save_sources(self, compress = True):
-		''' Save a (compressed) copy of the source files in the experiment_dir for more reproductability
+	def add_run(self, command_name, update_dict = None):
+		''' Manually create a run for a command without running that command. This is handy when you want to run the same command multiple times with common logging and metrics. 
+
+		Returns the created run. Make sure to recover at least that runs ID (run.id), this is needed to run it later on. 
 		'''
-		self.debug_locals(locals())
-		
-		raise Exception('TO-DO')
-		
-		
-	def run(self, command_name, update_dict = None, parallel = False, call_options = None):
-		''' Run a capture command function in an encapsulated way. 
-		
-		This creates a run entry in the ExperimentManager with associated specific run parameters, experiment_dir, logs and run informations.		
-		'''
-		self.debug_locals(locals())
+	
+		self.debug_locals()
 		self.info('Settig up environment for new run using command {} and update_dict {}'.format(command_name,update_dict))
 		
 		# Checking if the command exists
@@ -259,7 +286,10 @@ class ExperimentManager(object):
 			raise Exception('Command name {} is not recorded'.format(command_name))
 	
 		# Creating name and id for the run in a safe way.
-		run_name, run_id = self.runs_versions.add('{} {}'.format(command_name,timestamp()), id = True)
+		run_name, run_id = self.runs_versions.add('{} {}'.format(command_name,timestamp()), return_id = True)
+		
+		# Updating internal max id call depth value
+		self._max_id_depth = max(self._max_id_depth,len(inspect.stack()))
 		
 		# Creating the associated directories and paths
 		if not self.ghost :
@@ -284,7 +314,8 @@ class ExperimentManager(object):
 		logger = setup_logger(run_name,run_logger_path)
 		
 		# Defining metrics
-		self.metrics[run_id] = {}
+		if not self.ghost:
+			self.metrics[run_id] = MetricsManager(run_id,run_metrics_dir)
 		
 		# Adding a config entry
 		self.config.update({run_id:update_dict if update_dict is not None else {}})
@@ -299,6 +330,16 @@ class ExperimentManager(object):
 		# Logging the result
 		self.info('Finished creating run, {}'.format(pprint_dict(run.__dict__,output='return',name='__dict__')))
 		
+		return run
+	
+	def run_existing(self, run_id,  update_dict = None, parallel = False, call_options = None):
+		''' Run an existing run instance using its ID. You could of course also directly call the run with you call_options, the advantage of using this method is that it will log the start and end of the run in the global log file.
+		'''
+		if not run_id in self.runs:
+			raise Exception('run_id {} was not found in the saved runs : {}'.format(run_id,self.runs))
+			
+		run = self.runs[run_id]
+	
 		if call_options is None:
 			call_options = {}
 		
@@ -306,8 +347,87 @@ class ExperimentManager(object):
 		self.logger.info('Startig run for command {} with id {}'.format(command, run_id))
 		run(**call_options)
 		self.logger.info('Finished run for command {} with id {} after {} seconds'.format(command, run_id,run.duration))
+	
+	
+	def run(self, command_name, update_dict = None, parallel = False, call_options = None):
+		''' Run a capture command function in an encapsulated way. 
 		
-				
+		This creates a run entry in the ExperimentManager with associated specific run parameters, experiment_dir, logs and run informations.		
+		'''
+		self.debug_locals()
+		
+		run = self.add_run(command_name, update_dict = None)
+		
+		run_id = run.id
+		
+		if call_options is None:
+			call_options = {}
+		
+		# Actually doing the run
+		self.logger.info('Startig run for command {} with id {} and configration'.format(command_name, run.id,pprint_dict(self.config,output='return')))
+		call_id = run(**call_options)
+		self.logger.info('Finished run for command {} with id {} after {} seconds'.format(command_name, run.id, run.calls_info[call_id]["duration"]))
+		
+		
+		
+	'''
+	Metrics
+	'''
+		
+
+	def log_scalar(self, metric_name, value, step, run_id = None):
+		"""
+		Add a new measurement. If shared is set to true, the measurement will go to the shared metrics, otherwise it will be placed in the current run's metrics.
+		"""
+		self.debug_locals()
+		
+		if self.ghost:
+			return
+		
+		# Find the id of the desired metrics set
+		if run_id is None:
+			run_id = self.get_call_id()
+		
+		# Delegating to the right MetricsManager
+		self.metrics[run_id].log_scalar(metric_name,value,step)
+		
+		
+	'''
+	Saving
+	'''
+	
+	def add_source(self,source):
+		''' Add a file to the sources directory of this experiment. Sources are meant to be files that are required for the experiment to be run in the event that you would want to reproduce it.
+		
+		Source can be an absolute or relative path to the file.
+		'''
+		
+		if self.ghost:
+			return
+		
+		path = os.path.abspath(source)
+		shutil.copy2(path,self.sources_dir)		
+		
+		
+	def save_project_sources(self, include_extensions = None, include_names = None, skip_dirs = None):
+		''' Save a (compressed) copy of the source files in the experiment_dir for more reproductability
+		'''
+		
+		if self.ghost:
+			return
+		
+		include_extensions = ['py'] if include_extensions is None else include_extensions
+		default_skip_dirs = ['__pycahce__','.git','managed_experiments']
+		skip_dirs = default_skip_dirs if skip_dirs is None else skip_dirs+default_skip_dirs
+		include_names = [] if include_names is None else include_names
+		
+		for dirname, _, filenames in os.walk(self.project_dir):
+			if dirname in skip_dirs: 
+				continue
+			for filename in filenames:
+				if filename.split('.')[-1] in include_extensions or os.path.basename(filename) in include_names:
+					self.add_source(os.path.join(dirname, filename))
+	
 	
 	def save(self,obj,name, method = None, shared = False, method_args = None, method_kwargs = None):
 		''' Save an object without any thought! It will be added to the right folder (shared folder if no active run or if shared is enforced.
@@ -327,24 +447,20 @@ class ExperimentManager(object):
 		Look at the Saver class for more information.		
 		'''
 		
-		self.debug_locals(locals())
+		self.debug_locals()
 		
 		# Check if we must skip saving
 		if self.ghost: 
 			return
 		
 		# Finding the right save dir
-		run_id = ExperimentManager.get_call_id(logger=self.debugger)
-		save_dir = None
-		if run_id is None or shared : 
-			save_dir = self.save_dir
-		else:
-			save_dir = self.runs[run_id].save_dir
-		
+		run_id = -1 if shared else self.get_call_id()
+		save_dir = self.save_dir if run_id == -1 else self.runs[run_id].save_dir
 		if save_dir is None:
 			return
 			# this wil only happen if either the global save_dir or the run's experiment_dir has manually been set to None.
 			# In that case, we assume that the user intended for nothing to be saved.
+		
 		
 		# Calling the Saver objcet
 		self.saver.save(obj,name,save_dir,method = method, method_args = method_args, method_kwargs = method_kwargs)
@@ -359,26 +475,36 @@ class ExperimentManager(object):
 		
 		Extension shoud be the expected file extension.
 		'''
-		self.debug_locals(locals())
+		self.debug_locals()
+		
+		if self.ghost:
+			return
 		
 		self.saver.add_saver(method,name,extension)		
-		
+	
+	
+	
+	'''
+	Cleaning
+	'''
+	
 	def close(self):
 		''' Meant to clean up the experiment. Std redirections will be reset and all unsaved metrics and logs will be written.
 		'''
-		self.debug_locals(locals())
+		self.debug_locals()
+		
 		
 		self.logger.info('Closing off experiment. Std out and err are set back to original values. Unsaved metrics and logs will be saved.')
-		sys.stdout = self.stdout_orig
-		sys.stderr = self.stderr_orig
+		if not self.ghost:
+			sys.stdout = self.stdout_orig
+			sys.stderr = self.stderr_orig
 		
 		
 	'''
-	Internal functions
+	Support functions
 	'''
 		
-	@staticmethod
-	def get_call_id(target_filename = None, target_function = 'run', target_field = 'run_id', logger = None):
+	def get_call_id(self,target_filename = None, target_function = 'run', target_field = 'run_id'):
 		''' Look through the stack trace for to retrieve a local value in a specific function of a specific file.
 		'''
 		
@@ -386,31 +512,30 @@ class ExperimentManager(object):
 
 		if target_filename is None:
 			target_filename = os.path.abspath(__file__)
-		run_origin = None
+			
+		run_id = -1
 		
-		for i in range(len(stack)-1,-1,-1): # going backwards since the run call should be really early on
+		for i in range(0,self._max_id_depth): # going backwards since the run call should be really early on
+			j = len(stack)-1-i
 			frame = stack[i]
 			function = frame.function
 			filename = os.path.abspath(frame.filename)
-			if filename == target_filename and function == target_function:
-				run_origin = frame
-				break
-			else :
-				pass
-				
-		if run_origin is None:
-			return None
-			raise Exception('No parent could be found, stack trace was {}'.format(stack))
+			if filename == target_filename and function == target_function and target_field in frame.frame.f_locals:
+				run_id = frame.frame.f_locals[target_field]
+				#break # we comment this line to support nested calls to run. We want to recover the last call id!
 		
-		if not target_field in frame.frame.f_locals:
-			raise Exception('{} was not found in parents\' locals'.format(target_field))
-			
-		if logger is not None:
-			logger.info('get call id for {} found {}'.format(inspect.stack()[1][3],frame.frame.f_locals[target_field]))
-		target_value = frame.frame.f_locals[target_field]
+		self.logger.info('get call id for {} found {}'.format(inspect.stack()[1][3],run_id))
+		return run_id
+		
+		
+		
+	
 
-		return target_value
-		
+	'''
+	MetricsManager saving/loading
+	'''
+
+	
 	def get_config(self):
 		'''	Get the configuration dictionnary this experiment. 
 
@@ -424,7 +549,8 @@ class ExperimentManager(object):
 			"experiment_dir" : self.experiment_dir,
 			"saving_versions" : self.saving_versions.get_config(),
 			"runs_versions" : self.runs_versions.get_config(),
-			"config" : { "shared" : self.config['shared'] } 
+			"config" : { -1 : self.config[-1] }, 
+			"ghost" : self.ghost
 		}
 		
 		return config
@@ -456,7 +582,7 @@ class ExperimentManager(object):
 		If the provided experiment_name or experiment_dir point to an directory that already exist, the configuration will only be valid if it contains the following fields: 
 			- saving_versions : the config dictionnary of the corresponding VersionsHandler
 			- runs_versions : the config dictionnary of the corresponding VersionsHandler
-			- config : the dictionnary containing a "shared" config dict. All others will be ignored.
+			- config : the dictionnary containing a shared config dict (id=-1). All others will be ignored.
 		'''
 		
 		essentials = ['name','experiments_dir','project_dir']
@@ -494,7 +620,7 @@ class ExperimentManager(object):
 		assert 'runs_versions' in config
 		assert 'version' in config['runs_versions']
 		assert 'config' in config
-		assert 'shared' in config['config']
+		assert -1 in config['config']
 		
 		config.update({'_resumed': True})
 		

@@ -1,0 +1,164 @@
+2019-05-20 18:13:38,455 - INFO -- Finished setting up Experiment! Configuration is  :
+    ghost : False
+    config :
+        -1 :
+    runs_versions : None
+    saving_versions : None
+    experiment_dir : C:\Users\Victor Ruelle\Documents\ASTAR\ExperimentManager\managed_experiments\test 05_20_2019__18_13_38
+    experiment_name : test 05_20_2019__18_13_38 (0)
+    project_dir : C:\Users\Victor Ruelle\Documents\ASTAR\ExperimentManager
+    experiments_dir : C:\Users\Victor Ruelle\Documents\ASTAR\ExperimentManager\managed_experiments
+    name : test
+
+2019-05-20 18:13:38,455 - INFO -- Captured function a_function with prefixes None
+2019-05-20 18:13:38,455 - INFO -- Captured function a_command with prefixes None
+2019-05-20 18:13:38,455 - INFO -- Captured function test_sacred with prefixes None
+2019-05-20 18:13:38,455 - INFO -- Here's a log message
+2019-05-20 18:13:38,455 - INFO -- get call id for save found -1
+2019-05-20 18:13:38,471 - INFO -- Saver saved C:\Users\Victor Ruelle\Documents\ASTAR\ExperimentManager\managed_experiments\test 05_20_2019__18_13_38\saved_files\options_dict.json
+2019-05-20 18:13:38,471 - INFO -- get call id for add_config found -1
+2019-05-20 18:13:38,471 - INFO -- Updated config for run_id -1 
+Before :
+    -1 :
+        value : 1
+        name : Julie
+        details :
+            towns :
+                1 : Paris
+                0 : Tel-Aviv
+            age : 21
+ 
+After :
+    -1 :
+        value : 1
+        name : Julie
+        details :
+            towns :
+                1 : Paris
+                0 : Tel-Aviv
+            age : 21
+
+2019-05-20 18:13:38,471 - INFO -- Settig up environment for new run using command a_command and update_dict None
+2019-05-20 18:13:38,471 - INFO -- Finished creating run, __dict__ :
+    calls_lock : <unlocked _thread.lock object at 0x00000205BC75B788>
+    calls_info :
+    status : None
+    results :
+    logger : <Logger a_command 05_20_2019__18_13_38 (INFO)>
+    metrics_dir : C:\Users\Victor Ruelle\Documents\ASTAR\ExperimentManager\managed_experiments\test 05_20_2019__18_13_38\saved_runs\a_command 05_20_2019__18_13_38\saved_metrics
+    save_dir : C:\Users\Victor Ruelle\Documents\ASTAR\ExperimentManager\managed_experiments\test 05_20_2019__18_13_38\saved_runs\a_command 05_20_2019__18_13_38\saved_files
+    run_dir : C:\Users\Victor Ruelle\Documents\ASTAR\ExperimentManager\managed_experiments\test 05_20_2019__18_13_38\saved_runs\a_command 05_20_2019__18_13_38
+    name : a_command 05_20_2019__18_13_38
+    id : 0
+    command : <function ExperimentManager.capture.<locals>.captured_function at 0x00000205BC7EF2F0>
+
+2019-05-20 18:13:38,471 - INFO -- Startig run for command a_command with id 0 and configration
+2019-05-20 18:13:38,487 - INFO -- get call id for captured_function found -1
+2019-05-20 18:13:38,487 - INFO -- get call id for save found -1
+2019-05-20 18:13:38,508 - INFO -- Saver saved C:\Users\Victor Ruelle\Documents\ASTAR\ExperimentManager\managed_experiments\test 05_20_2019__18_13_38\saved_files\a_list.npy
+2019-05-20 18:13:38,520 - INFO -- get call id for log_scalar found -1
+2019-05-20 18:13:38,528 - INFO -- get call id for log_scalar found -1
+2019-05-20 18:13:38,548 - INFO -- get call id for log_scalar found -1
+2019-05-20 18:13:38,564 - INFO -- get call id for log_scalar found -1
+2019-05-20 18:13:38,580 - INFO -- get call id for log_scalar found -1
+2019-05-20 18:13:38,584 - INFO -- get call id for captured_function found -1
+2019-05-20 18:13:38,600 - INFO -- Finished run for command a_command with id 0 after 0.113 seconds
+2019-05-20 18:13:38,604 - INFO -- Settig up environment for new run using command a_command and update_dict None
+2019-05-20 18:13:38,608 - INFO -- Finished creating run, __dict__ :
+    calls_lock : <unlocked _thread.lock object at 0x00000205BC75BDF0>
+    calls_info :
+    status : None
+    results :
+    logger : <Logger a_command 05_20_2019__18_13_38 (1) (INFO)>
+    metrics_dir : C:\Users\Victor Ruelle\Documents\ASTAR\ExperimentManager\managed_experiments\test 05_20_2019__18_13_38\saved_runs\a_command 05_20_2019__18_13_38 (1)\saved_metrics
+    save_dir : C:\Users\Victor Ruelle\Documents\ASTAR\ExperimentManager\managed_experiments\test 05_20_2019__18_13_38\saved_runs\a_command 05_20_2019__18_13_38 (1)\saved_files
+    run_dir : C:\Users\Victor Ruelle\Documents\ASTAR\ExperimentManager\managed_experiments\test 05_20_2019__18_13_38\saved_runs\a_command 05_20_2019__18_13_38 (1)
+    name : a_command 05_20_2019__18_13_38 (1)
+    id : 1
+    command : <function ExperimentManager.capture.<locals>.captured_function at 0x00000205BC7EF2F0>
+
+2019-05-20 18:13:38,608 - INFO -- Startig run for command a_command with id 1 and configration
+2019-05-20 18:13:38,612 - INFO -- get call id for captured_function found -1
+2019-05-20 18:13:38,620 - INFO -- get call id for save found -1
+2019-05-20 18:13:38,620 - INFO -- Saver saved C:\Users\Victor Ruelle\Documents\ASTAR\ExperimentManager\managed_experiments\test 05_20_2019__18_13_38\saved_files\a_list.npy (1)
+2019-05-20 18:13:38,620 - INFO -- get call id for log_scalar found -1
+2019-05-20 18:13:38,620 - INFO -- get call id for log_scalar found -1
+2019-05-20 18:13:38,654 - INFO -- get call id for log_scalar found -1
+2019-05-20 18:13:38,662 - INFO -- get call id for log_scalar found -1
+2019-05-20 18:13:38,690 - INFO -- get call id for log_scalar found -1
+2019-05-20 18:13:38,698 - INFO -- get call id for captured_function found -1
+2019-05-20 18:13:38,719 - INFO -- Finished run for command a_command with id 1 after 0.089 seconds
+2019-05-20 18:13:38,723 - INFO -- Settig up environment for new run using command test_sacred and update_dict None
+2019-05-20 18:13:38,731 - INFO -- Finished creating run, __dict__ :
+    calls_lock : <unlocked _thread.lock object at 0x00000205BC75B968>
+    calls_info :
+    status : None
+    results :
+    logger : <Logger test_sacred 05_20_2019__18_13_38 (INFO)>
+    metrics_dir : C:\Users\Victor Ruelle\Documents\ASTAR\ExperimentManager\managed_experiments\test 05_20_2019__18_13_38\saved_runs\test_sacred 05_20_2019__18_13_38\saved_metrics
+    save_dir : C:\Users\Victor Ruelle\Documents\ASTAR\ExperimentManager\managed_experiments\test 05_20_2019__18_13_38\saved_runs\test_sacred 05_20_2019__18_13_38\saved_files
+    run_dir : C:\Users\Victor Ruelle\Documents\ASTAR\ExperimentManager\managed_experiments\test 05_20_2019__18_13_38\saved_runs\test_sacred 05_20_2019__18_13_38
+    name : test_sacred 05_20_2019__18_13_38
+    id : 1
+    command : <function ExperimentManager.capture.<locals>.captured_function at 0x00000205BC7EF488>
+
+2019-05-20 18:13:38,731 - INFO -- Startig run for command test_sacred with id 1 and configration
+2019-05-20 18:13:38,739 - INFO -- get call id for captured_function found -1
+2019-05-20 18:13:38,747 - INFO -- Settig up environment for new run using command a_command and update_dict None
+2019-05-20 18:13:38,755 - INFO -- Finished creating run, __dict__ :
+    calls_lock : <unlocked _thread.lock object at 0x00000205BC75BBE8>
+    calls_info :
+    status : None
+    results :
+    logger : <Logger a_command 05_20_2019__18_13_38 (2) (INFO)>
+    metrics_dir : C:\Users\Victor Ruelle\Documents\ASTAR\ExperimentManager\managed_experiments\test 05_20_2019__18_13_38\saved_runs\a_command 05_20_2019__18_13_38 (2)\saved_metrics
+    save_dir : C:\Users\Victor Ruelle\Documents\ASTAR\ExperimentManager\managed_experiments\test 05_20_2019__18_13_38\saved_runs\a_command 05_20_2019__18_13_38 (2)\saved_files
+    run_dir : C:\Users\Victor Ruelle\Documents\ASTAR\ExperimentManager\managed_experiments\test 05_20_2019__18_13_38\saved_runs\a_command 05_20_2019__18_13_38 (2)
+    name : a_command 05_20_2019__18_13_38 (2)
+    id : 2
+    command : <function ExperimentManager.capture.<locals>.captured_function at 0x00000205BC7EF2F0>
+
+2019-05-20 18:13:38,755 - INFO -- Startig run for command a_command with id 2 and configration
+2019-05-20 18:13:38,763 - INFO -- get call id for captured_function found 2
+2019-05-20 18:13:38,787 - INFO -- get call id for save found 2
+2019-05-20 18:13:38,787 - INFO -- Saver saved C:\Users\Victor Ruelle\Documents\ASTAR\ExperimentManager\managed_experiments\test 05_20_2019__18_13_38\saved_runs\a_command 05_20_2019__18_13_38 (2)\saved_files\a_list.npy
+2019-05-20 18:13:38,799 - INFO -- get call id for log_scalar found 2
+2019-05-20 18:13:38,815 - INFO -- get call id for log_scalar found 2
+2019-05-20 18:13:38,835 - INFO -- get call id for log_scalar found 2
+2019-05-20 18:13:38,847 - INFO -- get call id for log_scalar found 2
+2019-05-20 18:13:38,863 - INFO -- get call id for log_scalar found 2
+2019-05-20 18:13:38,867 - INFO -- get call id for captured_function found 2
+2019-05-20 18:13:38,871 - INFO -- Finished run for command a_command with id 2 after 0.116 seconds
+2019-05-20 18:13:38,879 - INFO -- get call id for add_config found 1
+2019-05-20 18:13:38,879 - INFO -- Updated config for run_id 1 
+Before :
+    2 :
+    1 :
+        name : Victor
+    0 :
+    -1 :
+        value : 1
+        name : Julie
+        details :
+            towns :
+                1 : Paris
+                0 : Tel-Aviv
+            age : 21
+ 
+After :
+    2 :
+    1 :
+        name : Victor
+    0 :
+    -1 :
+        value : 1
+        name : Julie
+        details :
+            towns :
+                1 : Paris
+                0 : Tel-Aviv
+            age : 21
+
+2019-05-20 18:13:38,883 - INFO -- get call id for captured_function found 1
+2019-05-20 18:13:38,887 - INFO -- Finished run for command test_sacred with id 1 after 0.152 seconds
+2019-05-20 18:13:38,887 - INFO -- Closing off experiment. Std out and err are set back to original values. Unsaved metrics and logs will be saved.

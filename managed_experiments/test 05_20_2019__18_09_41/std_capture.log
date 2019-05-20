@@ -1,0 +1,49 @@
+Hi, let's start an experiment!
+result of the get_options call :
+    value : 1
+    name : Julie
+    details :
+        towns :
+            1 : Paris
+            0 : Tel-Aviv
+        age : 21
+Entering command a_command
+name
+Julie
+value
+1
+name
+Julie
+value
+1
+Entering command a_command
+name
+Julie
+value
+1
+name
+Julie
+value
+1
+Traceback (most recent call last):
+  File "main.py", line 76, in <module>
+manager.run('test_sacred')
+  File "C:\Users\Victor Ruelle\Documents\ASTAR\ExperimentManager\experiment.py", line 366, in run
+call_id = run(**call_options)
+  File "C:\Users\Victor Ruelle\Documents\ASTAR\ExperimentManager\run.py", line 59, in __call__
+self.results[call_id] = self.command(*args,**kwargs)
+  File "C:\Users\Victor Ruelle\Documents\ASTAR\ExperimentManager\experiment.py", line 223, in captured_function
+result = function(*args, **kwargs)
+  File "main.py", line 28, in test_sacred
+manager.run('a_command', update_dict = {'name':'Pierre'})
+  File "C:\Users\Victor Ruelle\Documents\ASTAR\ExperimentManager\experiment.py", line 366, in run
+call_id = run(**call_options)
+  File "C:\Users\Victor Ruelle\Documents\ASTAR\ExperimentManager\run.py", line 59, in __call__
+self.results[call_id] = self.command(*args,**kwargs)
+  File "C:\Users\Victor Ruelle\Documents\ASTAR\ExperimentManager\experiment.py", line 220, in captured_function
+run_id = self.get_call_id()
+  File "C:\Users\Victor Ruelle\Documents\ASTAR\ExperimentManager\experiment.py", line 528, in get_call_id
+raise Exception('{} was not found in parents\' locals'.format(target_field))
+Exception
+:
+run_id was not found in parents' locals

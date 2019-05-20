@@ -1,0 +1,17 @@
+Run config :
+    command : test_sacred
+    logger : test_sacred 05_20_2019__18_13_38
+    calls_lock : <unlocked _thread.lock object at 0x00000205BC75B968>
+    calls_info :
+        0 :
+            duration : 0.152
+            stop_time : 05_20_2019__18_13_38
+            start_time : 05_20_2019__18_13_38
+    status : Finished
+    results :
+        0 : None
+    metrics_dir : C:\Users\Victor Ruelle\Documents\ASTAR\ExperimentManager\managed_experiments\test 05_20_2019__18_13_38\saved_runs\test_sacred 05_20_2019__18_13_38\saved_metrics
+    save_dir : C:\Users\Victor Ruelle\Documents\ASTAR\ExperimentManager\managed_experiments\test 05_20_2019__18_13_38\saved_runs\test_sacred 05_20_2019__18_13_38\saved_files
+    run_dir : C:\Users\Victor Ruelle\Documents\ASTAR\ExperimentManager\managed_experiments\test 05_20_2019__18_13_38\saved_runs\test_sacred 05_20_2019__18_13_38
+    name : test_sacred 05_20_2019__18_13_38
+    id : 1
