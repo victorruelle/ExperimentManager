@@ -1,13 +1,16 @@
-import threading 
-import os
-from keras.models import Model as keras_Model, save_model
-from superjson import json
-from numpy import ndarray, save as np_save
-from tensorflow import Tensor
-from keras.backend import eval
-from matplotlib.pyplot import Figure as plt_Figure
 import inspect
 import logging
+import os
+import threading
+
+from keras.backend import eval
+from keras.models import Model as keras_Model
+from keras.models import save_model
+from matplotlib.pyplot import Figure as plt_Figure
+from numpy import ndarray
+from numpy import save as np_save
+from superjson import json
+from tensorflow import Tensor
 
 
 class Saver():

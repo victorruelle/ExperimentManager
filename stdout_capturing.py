@@ -1,7 +1,7 @@
 import logging
 import sys
 
-from utils import setup_logger
+from ExperimentManager.utils import setup_logger
 
 class StreamToLogger(object):
 	"""

@@ -1,11 +1,13 @@
-import time
 import os
-from utils import timestamp
-import superjson
-from utils import pprint_dict
-import threading
-import traceback
 import sys
+import threading
+import time
+import traceback
+
+import superjson
+
+from ExperimentManager.utils import pprint_dict, timestamp
+
 
 class Run():
 	''' A simple container class. Used to capture basic information about a run. 

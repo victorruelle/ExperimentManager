@@ -1,7 +1,8 @@
+import copy
 import inspect
 import logging
 from datetime import datetime
-import copy
+
 import numpy as np
 
 formatter = logging.Formatter('%(asctime)s - %(levelname)s -- %(message)s')

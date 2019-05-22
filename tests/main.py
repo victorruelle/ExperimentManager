@@ -1,4 +1,4 @@
-from experiment import ExperimentManager
+from ExperimentManager.experiment import ExperimentManager
 
 manager = ExperimentManager('test',ghost=False)
 
@@ -51,7 +51,7 @@ def changing_configs():
 
 def merging_configs():
 	
-	from utils import get_options
+	from ExperimentManager.utils import get_options
 	
 	main_dict = { 
 		"name" : "Julie",
@@ -76,7 +76,7 @@ def merging_configs():
 		
 	prefixes = None #["details.towns"] #,"details.age"]
 	
-	from utils import pprint_dict
+	from ExperimentManager.utils import pprint_dict
 	
 	d = get_options(main_dict,run_dict,prefixes)
 	pprint_dict(d, name = "result of the get_options call")

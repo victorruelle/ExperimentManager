@@ -8,12 +8,12 @@ from copy import deepcopy
 import wrapt
 import functools
 
-from utils import timestamp, setup_logger, pprint_dict, get_options
-from run import Run
-from signature import Signature
-from stdout_capturing import StreamToLogger
-from saving import Saver, VersionsHandler
-from metrics import MetricsManager
+from ExperimentManager.utils import timestamp, setup_logger, pprint_dict, get_options
+from ExperimentManager.run import Run
+from ExperimentManager.signature import Signature
+from ExperimentManager.stdout_capturing import StreamToLogger
+from ExperimentManager.saving import Saver, VersionsHandler
+from ExperimentManager.metrics import MetricsManager
 
 class ExperimentManager(object):
 

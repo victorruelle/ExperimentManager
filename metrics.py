@@ -5,7 +5,7 @@ import traceback
 
 import numpy as np
 
-from utils import setup_logger
+from ExperimentManager.utils import setup_logger
 
 
 class MetricsManager():
