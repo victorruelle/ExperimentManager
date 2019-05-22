@@ -20,10 +20,6 @@ class StreamToLogger(object):
 			self.logger.log(self.log_level, line.rstrip())
 
 	def flush(self):
-		# NOT CORRECTLY IMPLEMENTED!
-	
-		#logging.shutdown()
 		if self.std_orig is not None:
-			#self.std_orig.flush()
+			self.std_orig.flush()
 			pass
-		pass

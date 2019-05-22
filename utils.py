@@ -185,3 +185,40 @@ def timestamp():
 	''' Generate a custom timestamp.
 	'''
 	return datetime.now().strftime("%m_%d_%Y__%H_%M_%S")
+
+
+if __name__ == "__main__":
+
+		main_dict = {
+			"name" : "Victor",
+			"value" : 100,
+			"towns": {
+				"0" : "Paris",
+				"1" : "Bxls"
+			},
+			"info":{
+				"rd":{
+					"fav number" : 5,
+					"fav place":None
+				},
+				"rd2":{
+					"I am here?" : True
+				}
+			}
+		}
+
+		run_dict = {
+			"info" : {
+				"rd" :{
+					"fav place": "Paris"
+				}
+			}
+		}
+
+		prefixes = None
+
+		pprint_dict(get_options(main_dict, run_dict, prefixes))
+
+		prefixes = ['name','info.rd','info','towns.0']
+
+		pprint_dict(get_options(main_dict, run_dict, prefixes))

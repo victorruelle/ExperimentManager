@@ -4,7 +4,6 @@ import sys
 import time
 import logging
 import shutil
-from distutils.dir_util import copy_tree
 from copy import deepcopy
 import wrapt
 import functools
@@ -150,9 +149,9 @@ class ExperimentManager(object):
 		
 		self.verbose = verbose # Verbosity level for the experiment internals. 
 		
-		# Saving the project sources. Not Working yet. see todo
-		#if not self.ghost:
-		#	self.save_project_sources()
+		# Saving the project sources
+		if not self.ghost:
+			self.save_project_sources()
 		
 		# logging the end of the setup
 		self.info('Finished setting up Experiment! Configuration is {}'.format(pprint_dict(self.get_config(),output='return',name='')))
@@ -231,12 +230,12 @@ class ExperimentManager(object):
 		wrapped_function.__name__ = wrapped.__name__
 		
 		# Adding to the list of captured functions
-		self.wrapped_functions.append(wrapped_function(wrapped))
+		self.wrapped_functions.append(wrapped_function(wrapped,**{}))
 		
 		# Logging the result
 		self.info('Captured function {} with prefixes {}'.format(wrapped.__name__,prefixes))
 		
-		return wrapped_function(wrapped)
+		return wrapped_function(wrapped,**{})
 		
 	'''
 	Runs
@@ -274,15 +273,15 @@ class ExperimentManager(object):
 		wrapped_function.__name__ = wrapped.__name__
 		
 		# Adding to the list of captured functions
-		self.wrapped_functions.append(wrapped_function(wrapped))
+		self.wrapped_functions.append(wrapped_function(wrapped,**{}))
 		
 		# Adding to the list of commands
-		self.commands.update({wrapped_function.__name__ : wrapped_function(wrapped)})
+		self.commands.update({wrapped_function.__name__ : wrapped_function(wrapped,**{})})
 		
 		# Logging the result
 		self.info('Captured function {} with prefixes {}'.format(wrapped.__name__,prefixes))
 		
-		return wrapped_function(wrapped)
+		return wrapped_function(wrapped,**{})
 		
 		
 	def add_command(self,function):
@@ -370,9 +369,9 @@ class ExperimentManager(object):
 			call_options = {}
 		
 		# Actually doing the run
-		self.logger.info('Startig run for command {} with id {}'.format(command, run_id))
-		run(**call_options)
-		self.logger.info('Finished run for command {} with id {} after {} seconds'.format(command, run_id,run.duration))
+		self.logger.info('Startig run for command {} with id {} and configration {}'.format(run.command.__name__, run.id,pprint_dict(self.config,output='return')))
+		call_id = run(**call_options)
+		self.logger.info('Finished run for command {} with id {} after {} seconds'.format(run.command.__name__, run.id, run.calls_info[call_id]["duration"]))
 	
 	
 	def run(self, command_name, update_dict = None, parallel = False, call_options = None):
@@ -382,7 +381,7 @@ class ExperimentManager(object):
 		'''
 		self.debug_locals()
 		
-		run = self.add_run(command_name, update_dict = None)
+		run = self.add_run(command_name, update_dict = update_dict)
 		
 		run_id = run.id
 		
@@ -390,7 +389,7 @@ class ExperimentManager(object):
 			call_options = {}
 		
 		# Actually doing the run
-		self.logger.info('Startig run for command {} with id {} and configration'.format(command_name, run.id,pprint_dict(self.config,output='return')))
+		self.logger.info('Startig run for command {} with id {} and configration {}'.format(command_name, run.id,pprint_dict(self.config,output='return')))
 		call_id = run(**call_options)
 		self.logger.info('Finished run for command {} with id {} after {} seconds'.format(command_name, run.id, run.calls_info[call_id]["duration"]))
 		
@@ -425,14 +424,21 @@ class ExperimentManager(object):
 	def add_source(self,source):
 		''' Add a file to the sources directory of this experiment. Sources are meant to be files that are required for the experiment to be run in the event that you would want to reproduce it.
 		
-		Source can be an absolute or relative path to the file.
+		Source can be a relative path to the source file (relative to the project dir) or its absolute path but it must be contained in the project dir.
 		'''
 		
 		if self.ghost:
 			return
 		
-		path = os.path.abspath(source)
-		shutil.copy2(path,self.sources_dir)		
+		load_path = os.path.abspath(source)
+		
+		if not os.path.isfile(load_path):
+			self.logger.warn('Tried to load a source that does not exist at path {}'.format(load_path))
+			return
+			
+		relative_source = os.path.relpath(source,self.project_dir)
+		save_path = os.path.join(self.sources_dir,relative_source)
+		shutil.copy2(load_path,save_path)
 		
 		
 	def save_project_sources(self, include_extensions = None, include_names = None, skip_dirs = None):
@@ -446,13 +452,20 @@ class ExperimentManager(object):
 		default_skip_dirs = ['__pycahce__','.git','managed_experiments']
 		skip_dirs = default_skip_dirs if skip_dirs is None else skip_dirs+default_skip_dirs
 		include_names = [] if include_names is None else include_names
+
+		def assert_skip_dir(dirpath):
+			dirpath = os.path.relpath(dirpath,self.project_dir)
+			for skip_dir in skip_dirs:
+				if dirpath[:len(skip_dir)]==skip_dir:
+					return True
+			return False
 		
-		for dirname, _, filenames in os.walk(self.project_dir):
-			if dirname in skip_dirs: 
+		for dirpath,_, filenames in os.walk(self.project_dir):
+			if assert_skip_dir(dirpath): 
 				continue
 			for filename in filenames:
 				if filename.split('.')[-1] in include_extensions or os.path.basename(filename) in include_names:
-					self.add_source(os.path.join(dirname, filename))
+					self.add_source(os.path.join(dirpath, filename))
 	
 	
 	def save(self,obj,name, method = None, shared = False, method_args = None, method_kwargs = None):
@@ -613,6 +626,8 @@ class ExperimentManager(object):
 		
 		for param in essentials:
 			assert param in config, 'Missing essential field {}'.format(param)
+
+		experiments_dir = config['experiments_dir']
 			
 		experiment_name = None if 'experiment_name' not in config else config['experiment_name']
 		experiment_dir = None if 'experiment_dir' not in config else config['experiment_dir']
@@ -640,9 +655,9 @@ class ExperimentManager(object):
 		# else, we need to check for the optionnals
 		
 		assert 'saving_versions' in config
-		assert 'version' in config['saving_versions']
+		assert 'versions' in config['saving_versions']
 		assert 'runs_versions' in config
-		assert 'version' in config['runs_versions']
+		assert 'versions' in config['runs_versions']
 		assert 'config' in config
 		assert -1 in config['config']
 		

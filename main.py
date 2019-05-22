@@ -37,15 +37,15 @@ def changing_configs():
 	print('Current run id is {}'.format(manager.get_call_id()))
 	print('Config is : {}'.format(manager.config))
 	print('Running print without any change')
-	printing_function()
+	printing_function(**{})
 	print('Updating confing')
 	manager.add_config( {'name':'A local config Victor'} )
 	print('Config is : {}'.format(manager.config))
-	printing_function()
+	printing_function(**{})
 	print('Updating confing')
 	manager.add_config( {'name':'A global config Victor'}, -1 )
 	print('Config is : {}'.format(manager.config))
-	printing_function()
+	printing_function(**{})
 	print('Exiting command changing config')
 
 
@@ -101,14 +101,14 @@ if __name__ == "__main__":
 		}
 	
 	manager.add_config(d)
-	
+	raise Exception('Hi there. Lets stop')
 	print('Running command changing_configs')
 	manager.run('changing_configs')
 	print('Running command changing_configs with Pierre update_dict')
 	manager.run('changing_configs',update_dict= { "name" : "Pierre" })
 	print('Running metrics_logging')
 	manager.run('metrics_logging')
-	saving()
+	saving(**{})
 	print("Bye!")
 	manager.close()
 	print('Should not be captured')

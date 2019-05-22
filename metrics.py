@@ -1,7 +1,12 @@
-from utils import setup_logger
-import threading
-import numpy as np
 import os
+import sys
+import threading
+import traceback
+
+import numpy as np
+
+from utils import setup_logger
+
 
 class MetricsManager():
 	''' Class to manage the metrics loggers for a single run ( ie: a single saving folder)
@@ -30,9 +35,13 @@ class MetricsManager():
 		try:		
 			self.lock.acquire()
 			self.metrics[name] = MetricsLogger(name,os.path.join(self.save_dir,'{}.csv'.format(name)))
-			
-		finally:
-		
+
+		except Exception as err:
+			traceback.print_tb(err.__traceback__)
+			print('Error type {} : {}'.format(sys.exc_info()[0],sys.exc_info()[1]))
+			raise Exception('')
+
+		finally:		
 			self.lock.release()
 			
 	def log_scalar(self,metric,value,step=None):
@@ -78,6 +87,12 @@ class MetricsLogger():
 				self.last_scalar_lock.acquire()
 				self.last_scalar_step += 1
 				step = self.last_scalar_step
+			
+			except Exception as err:
+				traceback.print_tb(err.__traceback__)
+				print('Error type {} : {}'.format(sys.exc_info()[0],sys.exc_info()[1]))
+				raise Exception('')
+
 			finally:
 				self.last_scalar_lock.release()
 				

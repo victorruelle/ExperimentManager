@@ -1,10 +1,11 @@
 import threading 
 import os
-#from keras.models import Model, save_model
+from keras.models import Model as keras_Model, save_model
 from superjson import json
 from numpy import ndarray, save as np_save
-#from tensorflow import Tensor
-#from keras.backend import eval
+from tensorflow import Tensor
+from keras.backend import eval
+from matplotlib.pyplot import Figure as plt_Figure
 import inspect
 import logging
 
@@ -22,13 +23,14 @@ class Saver():
 		self.savers = {}
 		
 		# Adding useful savers
-		self.savers['savefig'] = Method(savefig,'fig','png')
+		self.savers['matplotlib'] = Method(save_plt,'fig','png')
 		self.savers['json'] = Method(save_json,'json','json')
 		self.savers['numpy'] = Method(save_numpy,'numpy','npy')
-		self.savers['str'] = Method(save_str,'string','txt')
-		#self.savers['keras'] = Method(save_keras,'keras','h5')
+		self.savers['string'] = Method(save_str,'string','txt')
+		self.savers['keras'] = Method(save_keras,'keras','h5')
 		
-		self.logger = logger if logger is not None else logging.getLogger('ExperimentSaver',level = logging.INFO)
+		self.logger = logger if logger is not None else logging.getLogger('ExperimentSaver')
+		self.logger.setLevel(logging.INFO)
 		
 	def get_path(self,name,extension,dir):
 		''' Get a safe saving path.
@@ -66,19 +68,22 @@ class Saver():
 			'''
 			Converting types
 			'''
-			#if isinstance(obj,Tensor):
-			#	try:
-			#		obj = eval(obj)
-			#	except:
-			#		self.logger.warn('in Saver, Tensor could not be evaluated, string representation will be used instead...')
-			#		obj = str(obj)				
+			if isinstance(obj,Tensor):
+				try:
+					obj = eval(obj)
+				except:
+					self.logger.warn('in Saver, Tensor could not be evaluated, string representation will be used instead...')
+					obj = str(obj)				
 			
 			'''
 			Finding a method
 			'''
+
+			if isinstance(obj,plt_Figure):
+				method = 'matplotlib'
 		
-			#if isinstance(obj,Model):
-			#	method = 'keras'
+			if isinstance(obj,keras_Model):
+				method = 'keras'
 				
 			if isinstance(obj,str):
 				method = 'string'
@@ -144,17 +149,17 @@ class VersionsHandler(object):
 
 	def __init__(self):
 		super().__init__()
-		self.version = {}
+		self.versions = {}
 		self.lock = threading.Lock()
 		
 	def add(self,name, return_id = False):
 		try :
 			self.lock.acquire()
-			if name in self.version:
-				self.version[name] += 1
-				name += ' ({})'.format(self.version[name])
+			if name in self.versions:
+				self.versions[name] += 1
+				name += ' ({})'.format(self.versions[name])
 			else:
-				self.version[name] = 0
+				self.versions[name] = 0
 			if return_id:
 				output = (name,len(self))
 			else:
@@ -166,37 +171,40 @@ class VersionsHandler(object):
 		return output
 		
 	def __getitem__(self,key):
-		return self.version[key]
+		return self.versions[key]
 		
 	def __len__(self):
-		return sum(self.version.values())
+		return sum([value + 1 for value in self.versions.values()])
 		
 	def get_config(self):
-		config = { 'version' : self.version }
+		config = { 'versions' : self.versions }
 		
 	@staticmethod
 	def from_config(config):
-		assert 'version' in config
+		assert 'versions' in config
 		handler = VersionsHandler()
-		handler.version = config['version']
+		handler.versions = config['versions']
 		return handler
-		
 '''
 Predefined saving methods
 '''
 
-def savefig(fig,path,*args,**kwargs):
+def save_plt(fig,path,*args,**kwargs):
+	assert isinstance(fig,plt_Figure), type(fig)
 	fig.savefig(path,*args,**kwargs)
 	
-#def save_keras(model,path):
-#	save_model(model,path)
+def save_keras(model,path):
+	assert isinstance(model,keras_Model), type(model)
+	save_model(model,path)
 	
 def save_str(message,path):
 	with open(path,'w') as output:
-		output.write(str)
+		output.write(str(message))
 		
 def save_numpy(arr,path):
+	assert isinstance(arr,list) or isinstance(arr,ndarray), type(arr)
 	np_save(path,arr)
 	
 def save_json(d,path):
+	assert isinstance(d,dict), type(d)
 	json.dump(d,path,indent = 1, pretty = True, verbose = False)

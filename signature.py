@@ -7,6 +7,10 @@ from collections import OrderedDict
 import sys
 import copy
 
+'''
+This file is directly copied from the sacred library (MIT license).
+'''
+
 
 if sys.version_info[0] < 3:  # python2
 	def get_argspec(f):
