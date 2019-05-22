@@ -13,6 +13,8 @@ ExperimentManager does not support concurrency! When initializing an ExperimentM
 
 ## Things to work on
 
+- [ ] Add config decorator for easier configs
+- [ ] Add automain and main decorators
 - [x] fix the stoud capturing flush method, was going crazy when I did manager.main_logger.info even though main logger had been renamed internally to logger
 - [ ] Improve the main loggers, I want different levels of INFO (customize) to make some messages stick out more (eg: start and end of a command!)
 - [x] create a smarter metrics logging method, should at least support auto-indexing of values. Using a class with time etc.
