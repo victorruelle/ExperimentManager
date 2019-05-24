@@ -7,6 +7,7 @@ import shutil
 from copy import deepcopy
 import wrapt
 import functools
+import traceback
 
 from ExperimentManager.utils import timestamp, setup_logger, pprint_dict, get_options
 from ExperimentManager.run import Run
@@ -149,6 +150,8 @@ class ExperimentManager(object):
 			self.config = kwargs['config']
 		
 		self.verbose = verbose # Verbosity level for the experiment internals. 
+
+		self.task_queue = []
 		
 		# Saving the project sources
 		if not self.ghost:
@@ -247,6 +250,18 @@ class ExperimentManager(object):
 	'''
 	Runs
 	'''
+
+	def queue_tasks(self,tasks):
+		self.task_queue += tasks
+
+	def run_queue(self):
+		while len(self.task_queue)>0:
+			task = self.task_queue.pop(0)
+			try:
+				self.run(task)
+			except Exception as err:
+				traceback.print_tb(err.__traceback__)
+				self.logger.warn('Error type {} : {}'.format(sys.exc_info()[0],sys.exc_info()[1]))
 	
 	def command(self,wrapped=None, prefixes=None):
 		''' Decorator to add a function to list of callable commands. Also applies inject_config.			
@@ -445,6 +460,8 @@ class ExperimentManager(object):
 			
 		relative_source = os.path.relpath(source,self.project_dir)
 		save_path = os.path.join(self.sources_dir,relative_source)
+		save_dir = os.path.dirname(save_path)
+		os.makedirs(save_dir,exist_ok=True)
 		shutil.copy2(load_path,save_path)
 		
 		
@@ -463,7 +480,7 @@ class ExperimentManager(object):
 		def assert_skip_dir(dirpath):
 			dirpath = os.path.relpath(dirpath,self.project_dir)
 			for skip_dir in skip_dirs:
-				if dirpath[:len(skip_dir)]==skip_dir:
+				if skip_dir in dirpath:
 					return True
 			return False
 		

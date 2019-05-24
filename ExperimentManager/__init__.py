@@ -1,14 +1,16 @@
-__all__ = ['getManager']
+__all__ = ['getManager', 'getManagerFromConfig']
 
 import os
 import inspect
+import superjson
 
 from ExperimentManager.global_manager import global_manager
 from ExperimentManager.experiment import ExperimentManager
 from ExperimentManager.utils import pprint_dict
+from ExperimentManager.gpu_setup import setup
 
 
-def getManager(name = None,experiments_dir = None, project_dir = None, verbose = True, resume = False, **kwargs):
+def getManager(name = None,experiments_dir = None, project_dir = None, verbose = True, **kwargs):
     
     if name is None:
         name = get_call_id()
@@ -19,9 +21,54 @@ def getManager(name = None,experiments_dir = None, project_dir = None, verbose =
     else:
         caller_filename = os.path.abspath(inspect.stack()[1].filename)
         project_dir = project_dir if project_dir is not None else os.path.abspath(os.path.dirname(inspect.stack()[1].filename))
-        manager = ExperimentManager(name,experiments_dir = experiments_dir, project_dir = project_dir, verbose = verbose, resume = resume, **kwargs)
+        manager = ExperimentManager(name,experiments_dir = experiments_dir, project_dir = project_dir, verbose = verbose, **kwargs)
         global_manager.add(manager,caller_filename)
         return manager
+
+
+def getManagerFromConfig(config_file):
+    
+    if not os.path.isfile(config_file):
+        config_file = os.path.join(os.path.dirname(os.path.abspath(inspect.stack()[1].filename)),config_file)
+        
+
+    assert os.path.isfile(config_file), 'Config file was not found at {}'.format(config_file)
+    config = superjson.json.load(config_file,verbose=False)
+
+    # Looking for gpu setup config
+
+    if 'gpu' in config:
+        assert 'devices' in config['gpu']
+        assert 'allow_growth' in config['gpu']
+        setup(config['gpu']['devices'],config['gpu']['allow_growth'])
+
+    # Creating the experiment
+
+    assert 'name' in config
+    assert not config['name'] in global_manager.experiments
+
+    name = config['name']
+    project_dir = os.path.abspath(os.path.dirname(inspect.stack()[1].filename)) if not 'project_dir' in config else config['project_dir']
+    experiments_dir = None if not 'experiments_dir' in config else config['experiments_dir']
+    verbose = True if not 'verbose' in config else config['verbose']
+    
+
+    caller_filename = os.path.abspath(inspect.stack()[1].filename)
+    manager = ExperimentManager(name,experiments_dir = experiments_dir, project_dir = project_dir, verbose = verbose)
+    global_manager.add(manager,caller_filename)
+
+    # Adding a configuration if it exists
+
+    if 'config' in config:
+        manager.add_config(config['config'])
+    
+    # Adding queued commands if exist
+
+    if 'tasks_to_run' in config:
+        manager.queue_tasks(config['tasks_to_run'])
+        manager.logger.info('Tasks {} added to queue, run manager.run_queue to run them'.format(config['tasks_to_run']))
+
+    return manager
 
 
 def get_call_id():

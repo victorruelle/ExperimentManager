@@ -133,12 +133,13 @@ The command decorator also calls the capture decorator.
 - [x] Checks the parameter injection. Seems to not work, maybe because of the max_depth feature (reproduce : ghost = True).
 - [x] The metrics logging. Auto increment.
 - [x] Make sure that run_id is also picked up when running with run_existing!
-- [ ] Thorough check of the new get_options
-- [ ] The auto getLogger feature
+- [x] Thorough check of the new get_options
+- [x] The auto getLogger feature
 
 ## Things to work on
 
 - [x] createExperiment / getExperiment need to take names! You should be able to run multiple experiments at the same time. Automatic detection using Experiment IDs as locals at the very root!
+- [ ] Create API for loading experiments ? or remove backend support.
 - [ ] Add json support for add_config.
 - [ ] Add config decorator for easier configs
 - [ ] Add automain and main decorators
