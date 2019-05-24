@@ -14,6 +14,7 @@ from ExperimentManager.signature import Signature
 from ExperimentManager.stdout_capturing import StreamToLogger
 from ExperimentManager.saving import Saver, VersionsHandler
 from ExperimentManager.metrics import MetricsManager
+from ExperimentManager.global_manager import global_manager
 
 class ExperimentManager(object):
 
@@ -41,7 +42,7 @@ class ExperimentManager(object):
 		
 		# Trying to find the directory containig the source code, if not provided
 		if project_dir is None:
-			project_dir = os.path.abspath(os.path.dirname(inspect.stack()[0].filename))
+			project_dir = os.path.abspath(os.path.dirname(inspect.stack()[1].filename))
 		self.project_dir = project_dir
 		
 		# Finding the experiments directory in which to create this specific experiment.
@@ -152,6 +153,11 @@ class ExperimentManager(object):
 		# Saving the project sources
 		if not self.ghost:
 			self.save_project_sources()
+
+
+		# Initializing metrics visualization processes
+
+		
 		
 		# logging the end of the setup
 		self.info('Finished setting up Experiment! Configuration is {}'.format(pprint_dict(self.get_config(),output='return',name='')))
@@ -221,8 +227,9 @@ class ExperimentManager(object):
 		@wrapt.decorator
 		def wrapped_function(wrapped, instance, args, kwargs):
 			run_id = self.get_call_id()
+			bound = (instance is not None)
 			options = get_options(self.config[-1], run_dict = None if run_id is -1 else self.config[run_id], prefixes = prefixes)
-			args, kwargs = sig.construct_arguments(args, kwargs, options,False)
+			args, kwargs = sig.construct_arguments(args, kwargs, options,bound)
 			result = wrapped(*args, **kwargs)
 			return result
 		
@@ -400,7 +407,7 @@ class ExperimentManager(object):
 	'''
 		
 
-	def log_scalar(self, metric_name, value, step = None, run_id = None):
+	def log_scalar(self, metric_name, values, step = None, run_id = None, headers = None):
 		"""
 		Add a new measurement. If shared is set to true, the measurement will go to the shared metrics, otherwise it will be placed in the current run's metrics.
 		"""
@@ -414,7 +421,7 @@ class ExperimentManager(object):
 			run_id = self.get_call_id()
 		
 		# Delegating to the right MetricsManager
-		self.metrics[run_id].log_scalar(metric_name,value,step)
+		self.metrics[run_id].log_scalar(metric_name,values,step,headers = headers)
 		
 		
 	'''
@@ -537,6 +544,8 @@ class ExperimentManager(object):
 		if not self.ghost:
 			sys.stdout = self.stdout_orig
 			sys.stderr = self.stderr_orig
+
+		global_manager.remove(self.name)
 		
 		
 	'''

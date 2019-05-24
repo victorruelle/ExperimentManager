@@ -54,10 +54,6 @@ def _get_options(main_dict, run_dict = None, prefixes = None):
 	if prefixes is None:
 		return options
 	
-	
-	print('Intermediate options {}'.format(options))
-	print('prefixes',prefixes)
-	
 	# We need to pop the unwanted options
 	
 	# Depth-first search to clean out the unwanted options
@@ -117,10 +113,6 @@ def get_options(main_dict, run_dict = None, prefixes = None):
 				
 	if prefixes is None:
 		return options
-	
-	
-	print('Intermediate options {}'.format(options))
-	print('prefixes',prefixes)
 	
 	# We need to recover the requested elements
 	new_options = {}

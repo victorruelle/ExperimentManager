@@ -26,7 +26,7 @@ class MetricsManager():
 		self.lock = threading.Lock()
 		
 		
-	def add_metric(self,name):
+	def add_metric(self,name,headers = None):
 		
 		
 		if name in self.metrics:
@@ -34,7 +34,7 @@ class MetricsManager():
 		
 		try:		
 			self.lock.acquire()
-			self.metrics[name] = MetricsLogger(name,os.path.join(self.save_dir,'{}.csv'.format(name)))
+			self.metrics[name] = MetricsLogger(name,os.path.join(self.save_dir,'{}.csv'.format(name)),headers = headers)
 
 		except Exception as err:
 			traceback.print_tb(err.__traceback__)
@@ -44,24 +44,17 @@ class MetricsManager():
 		finally:		
 			self.lock.release()
 			
-	def log_scalar(self,metric,value,step=None):
+	def log_scalar(self,metric,values,step=None, headers = None):
 	
 		if metric not in self.metrics:
-			self.add_metric(metric)
+			self.add_metric(metric, headers = headers)
 			
-		self.metrics[metric].log_scalar(value,step)
-		
-	def log_scalars(self,metric,values,steps=None):
-	
-		if metric not in self.metrics:
-			self.add_metric(metric)
-			
-		self.metrics[metric].log_scalars(values,steps)
+		self.metrics[metric].log_scalar(values,step)
 
 
 class MetricsLogger():
 	
-	def __init__(self, name, path):
+	def __init__(self, name, path, headers = None):
 		
 		# The name of the metric (should be secured before calling this logger => no duplicates!)
 		self.name = name
@@ -74,13 +67,18 @@ class MetricsLogger():
 		
 		# The metrics logger
 		self.logger = setup_logger(self.name,self.path, format = False)
+
+		# Headers
+		self.headers = headers
+		if self.headers is not None:
+			self.logger.info('step,'+','.join(self.headers))
 		
 		# History of last step for auto-incrementing
 		self.last_scalar_step = -1
 		self.last_scalar_lock = threading.Lock()
 		
 		
-	def log_scalar(self,value,step=None):
+	def log_scalar(self,values,step=None):
 		
 		if step is None:
 			try: 
@@ -95,14 +93,18 @@ class MetricsLogger():
 
 			finally:
 				self.last_scalar_lock.release()
-				
-		self.logger.info('{},{}'.format(step,value))
+		
+		try:
+			iter(values)
+			self.logger.info('{},{}'.format(step,','.join( str(v) for v in values)))
+		except:
+			self.logger.info('{},{}'.format(step,values))
 		
 	
 	def log_scalars(self,values,steps = None):
 		''' Log multiple scalars at once using lists or numpy arrays.
 		'''
-		assert type(values) in (list,np.ndarray) and ( steps is None or type(steps) in (list,np,ndarray))
+		assert type(values) in (list,np.ndarray) and ( steps is None or type(steps) in (list,np.ndarray))
 		
 		if type(values) == np.ndarray:
 			assert values.ndim == 1

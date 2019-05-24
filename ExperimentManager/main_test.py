@@ -1,6 +1,13 @@
-from ExperimentManager.experiment import ExperimentManager
+from ExperimentManager import getManager
+from ExperimentManager.utils import pprint_dict
 
-manager = ExperimentManager('test',ghost=False)
+
+manager = getManager('test',ghost=False)
+
+class Test():
+	@manager.capture
+	def __init__(self,value):
+		self.value = value
 
 @manager.capture
 def printing_function(name,value = 0):
@@ -74,10 +81,7 @@ def merging_configs():
 			}	
 		}
 		
-	prefixes = None #["details.towns"] #,"details.age"]
-	
-	from ExperimentManager.utils import pprint_dict
-	
+	prefixes = None #["details.towns"] #,"details.age"]	
 	d = get_options(main_dict,run_dict,prefixes)
 	pprint_dict(d, name = "result of the get_options call")
 	
@@ -101,14 +105,17 @@ if __name__ == "__main__":
 		}
 	
 	manager.add_config(d)
-	raise Exception('Hi there. Lets stop')
-	print('Running command changing_configs')
-	manager.run('changing_configs')
-	print('Running command changing_configs with Pierre update_dict')
-	manager.run('changing_configs',update_dict= { "name" : "Pierre" })
-	print('Running metrics_logging')
-	manager.run('metrics_logging')
-	saving(**{})
-	print("Bye!")
-	manager.close()
-	print('Should not be captured')
+	import sacred
+	instance = Test(2)
+	print(instance.value)
+
+	# print('Running command changing_configs')
+	# manager.run('changing_configs')
+	# print('Running command changing_configs with Pierre update_dict')
+	# manager.run('changing_configs',update_dict= { "name" : "Pierre" })
+	# print('Running metrics_logging')
+	# manager.run('metrics_logging')
+	# saving(**{})
+	# print("Bye!")
+	# manager.close()
+	# print('Should not be captured')
