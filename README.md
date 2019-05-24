@@ -139,6 +139,8 @@ The command decorator also calls the capture decorator.
 ## Things to work on
 
 - [x] createExperiment / getExperiment need to take names! You should be able to run multiple experiments at the same time. Automatic detection using Experiment IDs as locals at the very root!
+- [ ] Support saving with replacement
+- [ ] Add info/war/error methods that will get_call_id to use a run's specific logger : logs to run file and prints using a specific run format
 - [ ] Create API for loading experiments ? or remove backend support.
 - [ ] Add json support for add_config.
 - [ ] Add config decorator for easier configs

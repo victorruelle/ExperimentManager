@@ -31,6 +31,8 @@ class Saver():
 		self.savers['numpy'] = Method(save_numpy,'numpy','npy')
 		self.savers['string'] = Method(save_str,'string','txt')
 		self.savers['keras'] = Method(save_keras,'keras','h5')
+		self.savers['dot'] = Method(save_dot,'dot','png')
+		
 		
 		self.logger = logger if logger is not None else logging.getLogger('ExperimentSaver')
 		self.logger.setLevel(logging.INFO)
@@ -51,20 +53,21 @@ class Saver():
 		if method is not None:
 			assert method in self.savers, 'No saver found for {}'.format(locals())
 	
-		# Check if the extension was manually specified, try to comply if so
-		elif '.' in name:
+		# Check if the extension was manually specified
+		if '.' in name:
 			split_name = name.split(".")
 			if len(split_name) != 2:
 				raise Exception('Found abnormal name in Saver.save : {}'.format(name))
 			name,extension = split_name
-			
-			# Find a method matching the extension
-			for internal_method in self.savers.values():
-				if internal_method.extension == extension:
-					method = internal_method.name
-					break
-			if method is None:
-				self.logger.warn('Could not find a method atching the specified extension {} when saving {}. Now trying to find a suitable saving method.'.format(extension,name))
+
+			# Find a method matching the extension if one was not specifically requested
+			if method is None:		
+				for internal_method in self.savers.values():
+					if internal_method.extension == extension:
+						method = internal_method.name
+						break
+				if method is None:
+					self.logger.warn('Could not find a method atching the specified extension {} when saving {}. Now trying to find a suitable saving method.'.format(extension,name))
 		
 		# Finding the right saving method (could be called even if an extension was given (but no method was found)
 		if method is None:			
@@ -126,6 +129,8 @@ class Saver():
 		
 		# Logging the result
 		self.logger.info('Saver saved {}'.format(save_path))
+
+		return save_path
 				
 			
 			
@@ -211,3 +216,6 @@ def save_numpy(arr,path):
 def save_json(d,path):
 	assert isinstance(d,dict), type(d)
 	json.dump(d,path,indent = 1, pretty = True, verbose = False)
+
+def save_dot(dot,path):
+	dot.write(path,'png')

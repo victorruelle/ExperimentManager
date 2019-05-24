@@ -19,7 +19,7 @@ from ExperimentManager.global_manager import global_manager
 
 class ExperimentManager(object):
 
-	def __init__(self,name,experiments_dir = None, project_dir = None, verbose = True, resume = False, **kwargs):
+	def __init__(self,name,experiments_dir = None, project_dir = None, load_dir = None, verbose = True, resume = False, **kwargs):
 		''' Create a manager for your experiment. It can manage your parameter configurations, saving and loading of all ressources, logging and monitoring of any metrics and keep a saved version of the source files all in the right place and with the right versionning. You can use it to run predefined tasks in encapsulated environment with shared and run-specific options.
 
 		# Args
@@ -49,10 +49,18 @@ class ExperimentManager(object):
 		# Finding the experiments directory in which to create this specific experiment.
 		if experiments_dir is None:
 			experiments_dir = os.path.join(self.project_dir,'managed_experiments')
+		elif not os.path.isabs():
+			experiments_dir = os.path.join(self.project_dir,experiments_dir)
 		self.experiments_dir = experiments_dir
 		
 		if not os.path.isdir(self.experiments_dir):
 			os.makedirs(self.experiments_dir)
+
+		if load_dir is not None:
+			if not os.path.isabs(load_dir):
+				load_dir = os.path.abspath(self.project_dir,load_dir)
+		self.load_dir = load_dir
+
 		
 		# Creating this specific experiment's directory using the experiment name and hand-cooked versionning. This is not a very safe/stable method.
 		if not self.ghost: 
@@ -442,6 +450,15 @@ class ExperimentManager(object):
 	'''
 	Saving
 	'''
+
+	def get_save_path(self,path,*paths):
+		''' Use the save dir to find absolute save path for files suing relative paths
+		'''
+		run_id = self.get_call_id()
+		save_dir = self.save_dir if run_id == -1 else self.runs[run_id].save_dir
+		if save_dir is None:
+			return None
+		return os.path.join(save_dir,path,*paths)
 	
 	def add_source(self,source):
 		''' Add a file to the sources directory of this experiment. Sources are meant to be files that are required for the experiment to be run in the event that you would want to reproduce it.
@@ -526,7 +543,7 @@ class ExperimentManager(object):
 		
 		
 		# Calling the Saver objcet
-		self.saver.save(obj,name,save_dir,method = method, method_args = method_args, method_kwargs = method_kwargs)
+		return self.saver.save(obj,name,save_dir,method = method, method_args = method_args, method_kwargs = method_kwargs)
 			
 	
 	def add_saver(self,method,name,extension):
@@ -545,8 +562,17 @@ class ExperimentManager(object):
 		
 		self.saver.add_saver(method,name,extension)		
 	
-	
-	
+	"""
+	Loading
+	"""
+
+	def get_load_path(self,path,*paths, **kwargs):
+		''' Use the load dir to find absolute load path for files suing relative paths
+		'''
+		assert self.load_dir is not None,"Load dir is None, cannot use auto loading"
+		return os.path.join(self.load_dir,path,*paths)
+
+
 	'''
 	Cleaning
 	'''
