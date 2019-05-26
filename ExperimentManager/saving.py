@@ -37,21 +37,25 @@ class Saver():
 		self.logger = logger if logger is not None else logging.getLogger('ExperimentSaver')
 		self.logger.setLevel(logging.INFO)
 		
-	def get_path(self,name,extension,dir):
+	def get_path(self,name,extension,save_dir, overwrite = False):
 		''' Get a safe saving path.
 		'''
 		save_name = '{}.{}'.format(name,extension)
-		save_path = self.verions_handler.add(os.path.join(dir,save_name))
+		save_path = os.path.join(save_dir,save_name)
+		if not overwrite:
+			save_path = self.verions_handler.add(save_path)
 		return save_path
 	
 	
-	def save(self,obj,name,save_dir,method = None, method_args = None, method_kwargs = None):
+	def save(self,obj,name,save_dir,method = None, overwrite = False, method_args = None, method_kwargs = None):
 		''' Save an object given a name and a directory in which to save. 
 		
 		The optional method parameter should be a string corresponding to the name of an existing method in self.savers. 		
 		'''
 		if method is not None:
 			assert method in self.savers, 'No saver found for {}'.format(locals())
+
+		# self.logger.info('Saver.save was called with locals {}'.format(locals()))
 	
 		# Check if the extension was manually specified
 		if '.' in name:
@@ -122,7 +126,7 @@ class Saver():
 			method_kwargs = {}
 			
 		# Getting the correct save_path in a safe way
-		save_path = self.get_path(name,method.extension,save_dir)
+		save_path = self.get_path(name,method.extension,save_dir, overwrite = overwrite)
 		
 		# Saving
 		method(obj,save_path,*method_args,**method_kwargs)
@@ -201,9 +205,9 @@ def save_plt(fig,path,*args,**kwargs):
 	assert isinstance(fig,plt_Figure), type(fig)
 	fig.savefig(path,*args,**kwargs)
 	
-def save_keras(model,path):
-	assert isinstance(model,keras_Model), type(model)
-	save_model(model,path)
+def save_keras(model,path, **kwargs):
+	# assert isinstance(model,keras_Model), type(model)
+	save_model(model,path,**{  key:kwargs[key] for key in ['include_optimizer'] if key in kwargs })
 	
 def save_str(message,path):
 	with open(path,'w') as output:
@@ -218,4 +222,4 @@ def save_json(d,path):
 	json.dump(d,path,indent = 1, pretty = True, verbose = False)
 
 def save_dot(dot,path):
-	dot.write(path,'png')
+	dot.write(path,format = 'png')

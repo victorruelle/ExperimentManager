@@ -177,7 +177,7 @@ def default_args(function):
 def timestamp():
 	''' Generate a custom timestamp.
 	'''
-	return datetime.now().strftime("%m_%d_%Y__%H_%M_%S")
+	return datetime.now().strftime("%Hh%M  %d %m %Y")
 
 
 if __name__ == "__main__":

@@ -52,9 +52,11 @@ def getManagerFromConfig(config_file):
     experiments_dir = None if not 'experiments_dir' in config else config['experiments_dir']
     verbose = True if not 'verbose' in config else config['verbose']
     
+    kwargs = {  key:config[key] for key in ['skip_dirs'] if key in config }
+    manager = ExperimentManager(name,experiments_dir = experiments_dir, project_dir = project_dir, verbose = verbose, **kwargs)
 
+    # Adding the entry in the global manager
     caller_filename = os.path.abspath(inspect.stack()[1].filename)
-    manager = ExperimentManager(name,experiments_dir = experiments_dir, project_dir = project_dir, verbose = verbose)
     global_manager.add(manager,caller_filename)
 
     # Adding a configuration if it exists

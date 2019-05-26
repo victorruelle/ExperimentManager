@@ -26,7 +26,7 @@ class MetricsManager():
 		self.lock = threading.Lock()
 		
 		
-	def add_metric(self,name,headers = None):
+	def add_metric(self,name,header = None):
 		
 		
 		if name in self.metrics:
@@ -34,7 +34,7 @@ class MetricsManager():
 		
 		try:		
 			self.lock.acquire()
-			self.metrics[name] = MetricsLogger(name,os.path.join(self.save_dir,'{}.csv'.format(name)),headers = headers)
+			self.metrics[name] = MetricsLogger(name,os.path.join(self.save_dir,'{}.csv'.format(name)),header = header)
 
 		except Exception as err:
 			traceback.print_tb(err.__traceback__)
@@ -44,17 +44,17 @@ class MetricsManager():
 		finally:		
 			self.lock.release()
 			
-	def log_scalar(self,metric,values,step=None, headers = None):
+	def log_scalar(self,metric,values,step=None, header = None):
 	
 		if metric not in self.metrics:
-			self.add_metric(metric, headers = headers)
+			self.add_metric(metric, header = header)
 			
 		self.metrics[metric].log_scalar(values,step)
 
 
 class MetricsLogger():
 	
-	def __init__(self, name, path, headers = None):
+	def __init__(self, name, path, header = None):
 		
 		# The name of the metric (should be secured before calling this logger => no duplicates!)
 		self.name = name
@@ -69,9 +69,9 @@ class MetricsLogger():
 		self.logger = setup_logger(self.name,self.path, format = False)
 
 		# Headers
-		self.headers = headers
-		if self.headers is not None:
-			self.logger.info('step,'+','.join(self.headers))
+		self.header = header
+		if self.header is not None:
+			self.logger.info('step,'+','.join(self.header))
 		
 		# History of last step for auto-incrementing
 		self.last_scalar_step = -1

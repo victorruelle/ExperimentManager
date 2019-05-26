@@ -49,7 +49,7 @@ class ExperimentManager(object):
 		# Finding the experiments directory in which to create this specific experiment.
 		if experiments_dir is None:
 			experiments_dir = os.path.join(self.project_dir,'managed_experiments')
-		elif not os.path.isabs():
+		elif not os.path.isabs(experiments_dir):
 			experiments_dir = os.path.join(self.project_dir,experiments_dir)
 		self.experiments_dir = experiments_dir
 		
@@ -163,7 +163,7 @@ class ExperimentManager(object):
 		
 		# Saving the project sources
 		if not self.ghost:
-			self.save_project_sources()
+			self.save_project_sources(**{  key:kwargs[key] for key in ['skip_dirs','include_extensions','include_names'] if key in kwargs })
 
 
 		# Initializing metrics visualization processes
@@ -269,7 +269,7 @@ class ExperimentManager(object):
 				self.run(task)
 			except Exception as err:
 				traceback.print_tb(err.__traceback__)
-				self.logger.warn('Error type {} : {}'.format(sys.exc_info()[0],sys.exc_info()[1]))
+				print('Error type {} : {}'.format(sys.exc_info()[0],sys.exc_info()[1]))
 	
 	def command(self,wrapped=None, prefixes=None):
 		''' Decorator to add a function to list of callable commands. Also applies inject_config.			
@@ -430,7 +430,7 @@ class ExperimentManager(object):
 	'''
 		
 
-	def log_scalar(self, metric_name, values, step = None, run_id = None, headers = None):
+	def log_scalar(self, metric_name, values, step = None, run_id = None, header = None):
 		"""
 		Add a new measurement. If shared is set to true, the measurement will go to the shared metrics, otherwise it will be placed in the current run's metrics.
 		"""
@@ -444,7 +444,7 @@ class ExperimentManager(object):
 			run_id = self.get_call_id()
 		
 		# Delegating to the right MetricsManager
-		self.metrics[run_id].log_scalar(metric_name,values,step,headers = headers)
+		self.metrics[run_id].log_scalar(metric_name,values,step,header = header)
 		
 		
 	'''
@@ -489,27 +489,30 @@ class ExperimentManager(object):
 		if self.ghost:
 			return
 		
-		include_extensions = ['py'] if include_extensions is None else include_extensions
-		default_skip_dirs = ['__pycahce__','.git','managed_experiments']
+		include_extensions = ['py','json'] if include_extensions is None else include_extensions
+		default_skip_dirs = ['__pycache__','.git','.vscode']
 		skip_dirs = default_skip_dirs if skip_dirs is None else skip_dirs+default_skip_dirs
 		include_names = [] if include_names is None else include_names
 
 		def assert_skip_dir(dirpath):
-			dirpath = os.path.relpath(dirpath,self.project_dir)
+			if self.experiments_dir == dirpath[:len(self.experiments_dir)]:
+				return True
+			# dirpath = os.path.relpath(dirpath,self.project_dir)
 			for skip_dir in skip_dirs:
 				if skip_dir in dirpath:
 					return True
 			return False
-		
+
 		for dirpath,_, filenames in os.walk(self.project_dir):
+
 			if assert_skip_dir(dirpath): 
 				continue
 			for filename in filenames:
 				if filename.split('.')[-1] in include_extensions or os.path.basename(filename) in include_names:
 					self.add_source(os.path.join(dirpath, filename))
+			
 	
-	
-	def save(self,obj,name, method = None, shared = False, method_args = None, method_kwargs = None):
+	def save(self,obj,name, method = None, shared = False, overwrite = False, method_args = None, method_kwargs = None):
 		''' Save an object without any thought! It will be added to the right folder (shared folder if no active run or if shared is enforced.
 		
 		The most general types are handled. If you want to setup customized saving methods, first use the add_saver method to define your custom saving method; you can then specify the method name here.
@@ -531,19 +534,21 @@ class ExperimentManager(object):
 		
 		# Check if we must skip saving
 		if self.ghost: 
+			self.debug('Save was cancelled because of ghost')
 			return
 		
 		# Finding the right save dir
 		run_id = -1 if shared else self.get_call_id()
 		save_dir = self.save_dir if run_id == -1 else self.runs[run_id].save_dir
 		if save_dir is None:
+			self.debug('Save was cancelled because save_dir was None for run_id {}'.format(run_id))
 			return
 			# this wil only happen if either the global save_dir or the run's experiment_dir has manually been set to None.
 			# In that case, we assume that the user intended for nothing to be saved.
 		
 		
 		# Calling the Saver objcet
-		return self.saver.save(obj,name,save_dir,method = method, method_args = method_args, method_kwargs = method_kwargs)
+		return self.saver.save(obj,name,save_dir,method = method, method_args = method_args, overwrite = overwrite, method_kwargs = method_kwargs)
 			
 	
 	def add_saver(self,method,name,extension):
