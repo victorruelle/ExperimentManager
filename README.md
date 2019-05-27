@@ -135,26 +135,29 @@ The command decorator also calls the capture decorator.
 - [x] Make sure that run_id is also picked up when running with run_existing!
 - [x] Thorough check of the new get_options
 - [x] The auto getLogger feature
+- [ ] Tensorboard support and log_scalar/log_scalars distinction
+- [ ] Regex for add_project_sources
 
 ## Things to work on
 
 - [x] createExperiment / getExperiment need to take names! You should be able to run multiple experiments at the same time. Automatic detection using Experiment IDs as locals at the very root!
-- [ ] Support saving with replacement
-- [ ] Add info/war/error methods that will get_call_id to use a run's specific logger : logs to run file and prints using a specific run format
-- [ ] Replace skip_dirs and such with simple regex for better use
+- [x] Support saving with replacement
+- [x] Add distribution support for logging (tensorboard)
+- [x] Add info/war/error methods that will get_call_id to use a run's specific logger : logs to run file and prints using a specific run format
+- [x] Replace skip_dirs and such with simple regex for better use
 - [ ] Create API for loading experiments ? or remove backend support.
-- [ ] Add json support for add_config.
-- [ ] Add config decorator for easier configs
-- [ ] Add automain and main decorators
-- [ ] Integrate visualisation tools for saved metrics
-- [ ] Add scalar logging of multiple metrics on a same axis
-- [ ] Add option to overwrite existing file when saving
-- [ ] Add support for load dir!
-- [ ] Change the name minisacred_debug.log
+- [ ] (Add json support for add_config)
+- [ ] (Add config decorator for easier configs)
+- [ ] (Add automain and main decorators)
+- [x] Integrate visualisation tools for saved metrics
+- [x] Add scalar logging of multiple metrics on a same axis
+- [x] Add option to overwrite existing file when saving
+- [x] Add support for load dir!
+- [x] Change the name minisacred_debug.log
 - [x] fix the stoud capturing flush method, was going crazy when I did manager.main_logger.info even though main logger had been renamed internally to logger
-- [ ] Improve the main loggers, I want different levels of INFO (customize) to make some messages stick out more (eg: start and end of a command!)
+- [x] Improve the main loggers, I want different levels of INFO (customize) to make some messages stick out more (eg: start and end of a command!)
 - [x] create a smarter metrics logging method, should at least support auto-indexing of values. Using a class with time etc.
-- [ ] add tensorboard support and add all the same metrics logging functions.
+- [x] add tensorboard support and add all the same metrics logging functions.
 - [x] add_config : add support for specific values in prefix ? not just dictionaries. 
 - [x] improve the efficiency of get_call_id, I could record the deepest stack level when capturing functions to avoid going throug the entire stack everytime. Also pass ids in nested function calls whenever possible to avoid unnecassary calls.
 - [x] implement self.ghost, I've bypassed it sometimes for now
