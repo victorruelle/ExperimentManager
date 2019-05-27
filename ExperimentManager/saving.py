@@ -19,7 +19,7 @@ class Saver():
 	Implements generic saving methods and easily allows for custom methods to be added.	
 	'''
 
-	def __init__(self,verions_handler = None, logger = None):
+	def __init__(self,verions_handler = None, *kwargs):
 		
 		self.verions_handler = verions_handler if verions_handler is not None else VersionsHandler()
 		
@@ -33,9 +33,13 @@ class Saver():
 		self.savers['keras'] = Method(save_keras,'keras','h5')
 		self.savers['dot'] = Method(save_dot,'dot','png')
 		
+		if not 'info' in kwargs or not 'warn' in kwargs:
+			self.logger = logging.getLogger('ExperimentSaver')
+			self.logger.setLevel(logging.INFO)
 		
-		self.logger = logger if logger is not None else logging.getLogger('ExperimentSaver')
-		self.logger.setLevel(logging.INFO)
+		self.info = self.logger.info if not 'info' in kwargs else kwargs['info']
+		self.warn = self.logger.warn if not 'warn' in kwargs else kwargs['warn']
+		self.debug_locals = (lambda : None) if not 'debug_locals' in kwargs else kwargs['debug_locals']
 		
 	def get_path(self,name,extension,save_dir, overwrite = False):
 		''' Get a safe saving path.
@@ -52,10 +56,11 @@ class Saver():
 		
 		The optional method parameter should be a string corresponding to the name of an existing method in self.savers. 		
 		'''
+		
+		self.debug_locals()
+		
 		if method is not None:
 			assert method in self.savers, 'No saver found for {}'.format(locals())
-
-		# self.logger.info('Saver.save was called with locals {}'.format(locals()))
 	
 		# Check if the extension was manually specified
 		if '.' in name:
@@ -71,7 +76,7 @@ class Saver():
 						method = internal_method.name
 						break
 				if method is None:
-					self.logger.warn('Could not find a method atching the specified extension {} when saving {}. Now trying to find a suitable saving method.'.format(extension,name))
+					self.warn('Could not find a method atching the specified extension {} when saving {}. Now trying to find a suitable saving method.'.format(extension,name))
 		
 		# Finding the right saving method (could be called even if an extension was given (but no method was found)
 		if method is None:			
@@ -82,7 +87,7 @@ class Saver():
 				try:
 					obj = eval(obj)
 				except:
-					self.logger.warn('in Saver, Tensor could not be evaluated, string representation will be used instead...')
+					self.warn('in Saver, Tensor could not be evaluated, string representation will be used instead...')
 					obj = str(obj)				
 			
 			'''
@@ -109,7 +114,7 @@ class Saver():
 					_ = json.dumps(obj)
 					method = 'json'
 				except:
-					self.logger.warn('Could not save to last resort json dump for {}'.format(name))
+					self.warn('Could not save to last resort json dump for {}'.format(name))
 					return
 					# we exit, seeing as no method could be found
 					
@@ -132,7 +137,7 @@ class Saver():
 		method(obj,save_path,*method_args,**method_kwargs)
 		
 		# Logging the result
-		self.logger.info('Saver saved {}'.format(save_path))
+		self.info('Saver saved {}'.format(save_path))
 
 		return save_path
 				

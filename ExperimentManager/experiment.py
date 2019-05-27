@@ -8,6 +8,10 @@ from copy import deepcopy
 import wrapt
 import functools
 import traceback
+import subprocess
+import re
+
+from tensorflow import Summary, HistogramProto
 
 from ExperimentManager.utils import timestamp, setup_logger, pprint_dict, get_options
 from ExperimentManager.run import Run
@@ -19,7 +23,7 @@ from ExperimentManager.global_manager import global_manager
 
 class ExperimentManager(object):
 
-	def __init__(self,name,experiments_dir = None, project_dir = None, load_dir = None, verbose = True, resume = False, **kwargs):
+	def __init__(self,name,experiments_dir = None, project_dir = None, load_dir = None, verbose = 1, resume = False, tensorboard = True, **kwargs):
 		''' Create a manager for your experiment. It can manage your parameter configurations, saving and loading of all ressources, logging and monitoring of any metrics and keep a saved version of the source files all in the right place and with the right versionning. You can use it to run predefined tasks in encapsulated environment with shared and run-specific options.
 
 		# Args
@@ -62,7 +66,7 @@ class ExperimentManager(object):
 		self.load_dir = load_dir
 
 		
-		# Creating this specific experiment's directory using the experiment name and hand-cooked versionning. This is not a very safe/stable method.
+		# Creating this specific experiment's directory using the experiment name and home-cooked versionning. This is not a very safe/stable method.
 		if not self.ghost: 
 			if not self._force:
 				experiment_name = '{} {}'.format(self.name,timestamp())
@@ -100,7 +104,7 @@ class ExperimentManager(object):
 		# Setting up loggers
 		logger_path = os.path.join(self.experiment_dir,'experiment_info.log') if not self.ghost else None
 		self.logger = setup_logger('experiment',logger_path)
-		debug_logger_path = os.path.join(self.experiment_dir,'minisacred_debug.log') if not self.ghost else None
+		debug_logger_path = os.path.join(self.experiment_dir,'debug.log') if not self.ghost else None
 		self.debugger = setup_logger('minisacred_debug',debug_logger_path, level = logging.DEBUG)
 		
 		## Redirecting stdout and stderr to an unformatted logger
@@ -115,6 +119,15 @@ class ExperimentManager(object):
 			self.stderr_orig = sys.stderr
 			stderr_capture = StreamToLogger(self.std_logger,logging.ERROR, std_orig = self.stderr_orig)
 			sys.stderr = stderr_capture
+			
+		# Setting up tensorboard support
+		self.tensorboard = tensorboard # boolean
+		if self.tensorboard and not self.ghost:
+			self.tb_dir = os.path.join(self.experiment_dir,'tensorboard')
+			os.path.makedirs(self.tb_dir,exist_ok = True)
+			self.tb_writer = Summary.FileWriter(self.tb_dir)
+			subprocess.call('tensorboard --logdir {}'.format(self.tb_dir))
+			
 		
 		# Initializing empty variables
 		
@@ -131,7 +144,7 @@ class ExperimentManager(object):
 			self.runs_versions = VersionsHandler.from_config(kwargs['runs_versions']) # a VesionHandler to keep track of run_ids. Supports concurrency.
 		
 			
-		self.saver = Saver(self.saving_versions, logger = self.logger) # Creating handler for saving files during experiment
+		self.saver = Saver(self.saving_versions, info = self.info, warn = self.warn, debug_locals = self.debug_locals) # Creating handler for saving files during experiment
 		
 		self.runs = {} # will contain the run instance, keys are run_ids. 
 		
@@ -157,7 +170,7 @@ class ExperimentManager(object):
 		
 			self.config = kwargs['config']
 		
-		self.verbose = verbose # Verbosity level for the experiment internals. 
+		self.verbose = verbose # Verbosity level for the experiment internals ( 0 : no info, 1 : basic experiment log, 2 : basic + debug logs )
 
 		self.task_queue = []
 		
@@ -178,20 +191,29 @@ class ExperimentManager(object):
 	Messages
 	'''
 	
-	def info(self,message):
-		if self.verbose:
-			self.logger.info(message)
+	def info(self,message, level = 0):
+		if self.verbose > 0:
+			self.logger.info(self.add_header(message, level))
+			
+	def warn(self,message, level = 0):
+		if self.verbose > 0:
+			self.logger.warn(self.add_header(message))
 	
-	def debug(self,message):
-		if self.verbose:
-			self.debugger.info(message)
+	def debug(self,message, level = 0):
+		if self.verbose > 1:
+			self.debugger.info(self.add_header(message))message)
 	
 	def debug_locals(self, limit = 2):
-		if self.verbose:
+		if self.verbose > 1:
 			stack = inspect.stack()
 			locals_dict = stack[1].frame.f_locals
 			cout = pprint_dict(locals_dict,limit=limit,output='return', name = '')
 			self.debug('{} - arguments on call \n{}'.format(stack[1][3],cout))
+	
+	def add_header(self,message, level = 0):
+		caller_run = self.get_call_id()
+		caller_function = inspect.stack()[2][3]
+		return '- run {} - {} -{} {}'.format(caller_run,caller_function, '-'*2*level, message)
 	
 	
 	'''
@@ -207,10 +229,10 @@ class ExperimentManager(object):
 		
 		if run_id is None:
 			run_id = self.get_call_id()
-		if self.verbose : 
+		if self.verbose  > 0: 
 			config_orig = deepcopy(self.config)
 		self.config[run_id].update(config)
-		if self.verbose:
+		if self.verbose > 0:
 			self.info("Updated config for run_id {} \n{} \n{}".format(run_id,pprint_dict(config_orig,output = 'return', name = 'Before'),pprint_dict(self.config,output = 'return', name = 'After')))
 			
 			
@@ -222,6 +244,8 @@ class ExperimentManager(object):
 			- if no run_id is foud, it means that the captured function was called outside of a ex.run. We will only inject the shared parameters.
 			
 		'''
+		
+		self.debug_locals()
 		
 		if wrapped is None:
 			return functools.partial(self.capture,
@@ -260,9 +284,11 @@ class ExperimentManager(object):
 	'''
 
 	def queue_tasks(self,tasks):
+		self.debug_locals()
 		self.task_queue += tasks
 
 	def run_queue(self):
+		self.debug_locals()
 		while len(self.task_queue)>0:
 			task = self.task_queue.pop(0)
 			try:
@@ -274,6 +300,8 @@ class ExperimentManager(object):
 	def command(self,wrapped=None, prefixes=None):
 		''' Decorator to add a function to list of callable commands. Also applies inject_config.			
 		'''
+		
+		self.debug_locals()
 		
 		if wrapped is None:
 			return functools.partial(self.capture,
@@ -335,6 +363,7 @@ class ExperimentManager(object):
 		'''
 	
 		self.debug_locals()
+		
 		self.info('Settig up environment for new run using command {} and update_dict {}'.format(command_name,update_dict))
 		
 		# Checking if the command exists
@@ -380,6 +409,7 @@ class ExperimentManager(object):
 		
 		# Creating the Run instance
 		run = Run(run_id,run_name,command,logger,run_dir,run_save_dir,run_metrics_dir)
+		
 		self.runs[run_id] = run
 		
 		# Logging the result
@@ -390,6 +420,9 @@ class ExperimentManager(object):
 	def run_existing(self, run_id,  update_dict = None, parallel = False, call_options = None):
 		''' Run an existing run instance using its ID. You could of course also directly call the run with you call_options, the advantage of using this method is that it will log the start and end of the run in the global log file.
 		'''
+		
+		self.debug_locals()
+		
 		if not run_id in self.runs:
 			raise Exception('run_id {} was not found in the saved runs : {}'.format(run_id,self.runs))
 			
@@ -399,9 +432,9 @@ class ExperimentManager(object):
 			call_options = {}
 		
 		# Actually doing the run
-		self.logger.info('Startig run for command {} with id {} and configration {}'.format(run.command.__name__, run.id,pprint_dict(self.config,output='return')))
+		self.info('Startig run for command {} with id {} and configration {}'.format(run.command.__name__, run.id,pprint_dict(self.config,output='return')))
 		call_id = run(**call_options)
-		self.logger.info('Finished run for command {} with id {} after {} seconds'.format(run.command.__name__, run.id, run.calls_info[call_id]["duration"]))
+		self.info('Finished run for command {} with id {} after {} seconds'.format(run.command.__name__, run.id, run.calls_info[call_id]["duration"]))
 	
 	
 	def run(self, command_name, update_dict = None, parallel = False, call_options = None):
@@ -419,20 +452,74 @@ class ExperimentManager(object):
 			call_options = {}
 		
 		# Actually doing the run
-		self.logger.info('Startig run for command {} with id {} and configration {}'.format(command_name, run.id,pprint_dict(self.config,output='return')))
+		self.info('Startig run for command {} with id {} and configration {}'.format(command_name, run.id,pprint_dict(self.config,output='return')), level = 2)
 		call_id = run(**call_options)
-		self.logger.info('Finished run for command {} with id {} after {} seconds'.format(command_name, run.id, run.calls_info[call_id]["duration"]))
+		self.info('Finished run for command {} with id {} after {} seconds'.format(command_name, run.id, run.calls_info[call_id]["duration"]), level = 2)
 		
 		
 		
 	'''
 	Metrics
 	'''
+	
+	def log_scalars(self, file_name, values, header, step = None, run_id = None):
+		'''
+		Add a new measurement of multiple scalar at once. Each (file_name, run_id) defines a unique metrics logging file. Calls to the same logging file should be coherent (same number of values and headers), will raise an Error if otherwise.
+		
+		# Args
+			- file_name : the name that will be given to the csv file.
+			- values : a list or scalar of values to log together.
+			- header : the list of metric names for each value
+			- step : the name of the step, if None, an auto-incrementing integer will be used.
+			- run_id : force the id of the run to log to. It defaults to the current run.
+			
+			
+		# Returns
+			- None
+			
+		If tensorboard support is activated, scalars will also be added to the summary. Tags will be the headers.
+		
+		'''
+		
+		self.debug_locals()
+		
+		if self.ghost:
+			return
+			
+		assert len(values) == len(header), 'Sizes do not match in call to log_scalars, {} ({}), {} ({})'.format(values,len(values),header,len(header))
+		
+		# Find the id of the desired metrics set
+		if run_id is None:
+			run_id = self.get_call_id()
+					
+		# Delegating to the right MetricsManager
+		step = self.metrics[run_id].log_scalar(metric_name,values,step,header = header)
+		
+		# Duplicating call to tensorboard summary if needed
+		if self.tensorboard:
+			for i in range(len(values)):
+				self.tb_log_scalar('{} (file {} run {})'.format(header[i],file_name,run_id),values[i],step)
+		
+		self.debug('Metrics logged for metric {}'.format(metric_name))
+		
 		
 
-	def log_scalar(self, metric_name, values, step = None, run_id = None, header = None):
+	def log_scalar(self, metric_name, value, step = None, run_id = None):
 		"""
-		Add a new measurement. If shared is set to true, the measurement will go to the shared metrics, otherwise it will be placed in the current run's metrics.
+		Add a new measurement of a single scalar.
+			
+		# Args
+			- metric_name : the name that will be given to the csv file and also defines the header within the csv file.
+			- values : a list or scalar of values to log together.
+			- step : the name of the step, if None, an auto-incrementing integer will be used.
+			- run_id : force the id of the run to log to. It defaults to the current run.
+			
+		# Returns
+			- None
+			
+		If tensorboard support is activated, scalars will also be added to the summary. Tag will be the metric_name.
+		
+		
 		"""
 		self.debug_locals()
 		
@@ -442,11 +529,75 @@ class ExperimentManager(object):
 		# Find the id of the desired metrics set
 		if run_id is None:
 			run_id = self.get_call_id()
-		
+					
 		# Delegating to the right MetricsManager
-		self.metrics[run_id].log_scalar(metric_name,values,step,header = header)
+		step = self.metrics[run_id].log_scalar(metric_name,values,step,header = header)
+		
+		# Duplicating call to tensorboard summary if needed
+		if self.tensorboard:
+			self.tb_log_scalar('{} (run {})'.format(metric_name,run_id),value,step)
+		
+		self.debug('Metrics logged for metric {}'.format(metric_name))
 		
 		
+	def tb_log_scalar(self, tag, value, step):
+        """Log a scalar variable. Credits : Michael Gygli
+        Parameter
+        ----------
+        tag : basestring
+            Name of the scalar
+        value
+        step : int
+            training iteration
+        """
+		
+		if self.ghost or not self.tensorboard:
+			return
+		
+        summary = Summary(value=[Summary.Value(tag=tag, simple_value=value)])
+        self.tb_writer.add_summary(summary, step)
+	
+	
+	def log_histogram(self, tag, values, step, bins=1000):
+        """Logs the histogram of a list/vector of values. Credits : Michael Gygli
+		
+		This only logs to tensorboard. Hence it will do nothing if tensorboard support is not activated.
+		
+		"""
+		
+		if not self.tensorboard or self.ghost:
+			return
+		
+        # Convert to a numpy array
+        values = np.array(values)
+        
+        # Create histogram using numpy        
+        counts, bin_edges = np.histogram(values, bins=bins)
+
+        # Fill fields of histogram proto
+        hist = HistogramProto()
+        hist.min = float(np.min(values))
+        hist.max = float(np.max(values))
+        hist.num = int(np.prod(values.shape))
+        hist.sum = float(np.sum(values))
+        hist.sum_squares = float(np.sum(values**2))
+
+        # Requires equal number as bins, where the first goes from -DBL_MAX to bin_edges[1]
+        # See https://github.com/tensorflow/tensorflow/blob/master/tensorflow/core/framework/summary.proto#L30
+        # Thus, we drop the start of the first bin
+        bin_edges = bin_edges[1:]
+
+        # Add bin edges and counts
+        for edge in bin_edges:
+            hist.bucket_limit.append(edge)
+        for c in counts:
+            hist.bucket.append(c)
+
+        # Create and write Summary
+        summary = Summary(value=[tf.Summary.Value(tag=tag, histo=hist)])
+        self.tb_writer.add_summary(summary, step)
+        self.tb_writer.flush()
+	
 	'''
 	Saving
 	'''
@@ -454,6 +605,9 @@ class ExperimentManager(object):
 	def get_save_path(self,path,*paths):
 		''' Use the save dir to find absolute save path for files suing relative paths
 		'''
+		
+		self.debug_locals()
+		
 		run_id = self.get_call_id()
 		save_dir = self.save_dir if run_id == -1 else self.runs[run_id].save_dir
 		if save_dir is None:
@@ -466,13 +620,15 @@ class ExperimentManager(object):
 		Source can be a relative path to the source file (relative to the project dir) or its absolute path but it must be contained in the project dir.
 		'''
 		
+		self.debug_locals()
+		
 		if self.ghost:
 			return
 		
 		load_path = os.path.abspath(source)
 		
 		if not os.path.isfile(load_path):
-			self.logger.warn('Tried to load a source that does not exist at path {}'.format(load_path))
+			self.warn('Tried to load a source that does not exist at path {}'.format(load_path))
 			return
 			
 		relative_source = os.path.relpath(source,self.project_dir)
@@ -481,10 +637,14 @@ class ExperimentManager(object):
 		os.makedirs(save_dir,exist_ok=True)
 		shutil.copy2(load_path,save_path)
 		
+		self.debug('Successfully added source {}'.format(source))
+		
 		
 	def save_project_sources(self, include_extensions = None, include_names = None, skip_dirs = None):
 		''' Save a (compressed) copy of the source files in the experiment_dir for more reproductability
 		'''
+		
+		self.debug_locals()
 		
 		if self.ghost:
 			return
@@ -497,9 +657,8 @@ class ExperimentManager(object):
 		def assert_skip_dir(dirpath):
 			if self.experiments_dir == dirpath[:len(self.experiments_dir)]:
 				return True
-			# dirpath = os.path.relpath(dirpath,self.project_dir)
 			for skip_dir in skip_dirs:
-				if skip_dir in dirpath:
+				if re.match('.*{}{}'.format(os.path.sep,skip_dir),dirpath) or re.match('.*{}{}{}.*'.format(os.path.sep,skip_dir,os.path.sep),dirpath):
 					return True
 			return False
 
@@ -510,6 +669,8 @@ class ExperimentManager(object):
 			for filename in filenames:
 				if filename.split('.')[-1] in include_extensions or os.path.basename(filename) in include_names:
 					self.add_source(os.path.join(dirpath, filename))
+					
+		self.info('Project sources were successfully added')
 			
 	
 	def save(self,obj,name, method = None, shared = False, overwrite = False, method_args = None, method_kwargs = None):
@@ -565,7 +726,9 @@ class ExperimentManager(object):
 		if self.ghost:
 			return
 		
-		self.saver.add_saver(method,name,extension)		
+		self.saver.add_saver(method,name,extension)	
+
+		self.info('Successfully added saver {}'.format(name))
 	
 	"""
 	Loading
@@ -588,7 +751,8 @@ class ExperimentManager(object):
 		self.debug_locals()
 		
 		
-		self.logger.info('Closing off experiment. Std out and err are set back to original values. Unsaved metrics and logs will be saved.')
+		self.info('Closing off experiment. Std out and err are set back to original values. Unsaved metrics and logs will be saved.')
+		
 		if not self.ghost:
 			sys.stdout = self.stdout_orig
 			sys.stderr = self.stderr_orig
@@ -618,7 +782,7 @@ class ExperimentManager(object):
 				run_id = frame.frame.f_locals['run_id']
 				break
 		
-		self.logger.info('get call id for {} found {}'.format(inspect.stack()[1][3],run_id))
+		self.debug('get call id for {} found {}'.format(stack[1][3],run_id))
 		return run_id
 		
 		

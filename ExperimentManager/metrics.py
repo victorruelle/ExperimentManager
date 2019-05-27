@@ -34,7 +34,7 @@ class MetricsManager():
 		
 		try:		
 			self.lock.acquire()
-			self.metrics[name] = MetricsLogger(name,os.path.join(self.save_dir,'{}.csv'.format(name)),header = header)
+			self.metrics[name] = MetricsLogger(name,os.path.join(self.save_dir,'{}.csv'.format(name)),header = header, tensorboard = self.tensorboard)
 
 		except Exception as err:
 			traceback.print_tb(err.__traceback__)
@@ -44,12 +44,22 @@ class MetricsManager():
 		finally:		
 			self.lock.release()
 			
-	def log_scalar(self,metric,values,step=None, header = None):
+	def log_scalar(self,metric,value,step=None):
+	
+		if metric not in self.metrics:
+			self.add_metric(metric, header = [metric])
+			
+		step = self.metrics[metric].log_scalar(value,step)
+		
+		return step
+		
+	def log_scalars(self,metric,values,header, step=None):
 	
 		if metric not in self.metrics:
 			self.add_metric(metric, header = header)
 			
-		self.metrics[metric].log_scalar(values,step)
+		step = self.metrics[metric].log_scalars(values,step)
+		return step
 
 
 class MetricsLogger():
@@ -62,13 +72,10 @@ class MetricsLogger():
 		# The complete path to the log file (should be secured behore calling this logger)
 		self.path = path
 		
-		# Duplicate logging to tensorboard, not yet implemented
-		self.tensorboard = False 
-		
 		# The metrics logger
 		self.logger = setup_logger(self.name,self.path, format = False)
 
-		# Headers
+		# Headers, should be a list!
 		self.header = header
 		if self.header is not None:
 			self.logger.info('step,'+','.join(self.header))
@@ -77,14 +84,19 @@ class MetricsLogger():
 		self.last_scalar_step = -1
 		self.last_scalar_lock = threading.Lock()
 		
+		# To check the coherence between calls
+		self.n_vals = len(self.header)
 		
-	def log_scalar(self,values,step=None):
+	def verify_call(self,n_inputs):
+		assert self.n_vals = n_inputs
 		
+	
+	def get_step(self,step=None):
 		if step is None:
 			try: 
 				self.last_scalar_lock.acquire()
 				self.last_scalar_step += 1
-				step = self.last_scalar_step
+				return self.last_scalar_step
 			
 			except Exception as err:
 				traceback.print_tb(err.__traceback__)
@@ -93,27 +105,18 @@ class MetricsLogger():
 
 			finally:
 				self.last_scalar_lock.release()
+		return step
 		
-		try:
-			iter(values)
-			self.logger.info('{},{}'.format(step,','.join( str(v) for v in values)))
-		except:
-			self.logger.info('{},{}'.format(step,values))
 		
-	
-	def log_scalars(self,values,steps = None):
-		''' Log multiple scalars at once using lists or numpy arrays.
-		'''
-		assert type(values) in (list,np.ndarray) and ( steps is None or type(steps) in (list,np.ndarray))
-		
-		if type(values) == np.ndarray:
-			assert values.ndim == 1
-		
-		if type(steps) == np.ndarray:
-			assert steps.ndim == 1
+	def log_scalar(self,value,step=None):
+		self.verify_call(1)
+		step = self.get_step(step)
+		self.logger.info('{},{}'.format(step,value))
+		return step
 			
-		if steps is None:
-			steps = [ None ] * len(values)
-		
-		for x,y in zip(values,steps):
-			self.log_scalar(x,y)
+	def log_scalars(self,values,step=None):	
+		self.verify_call(len(values))
+		step = self.get_step(step)
+		self.logger.info('{},{}'.format(step,','.join( str(v) for v in values)))
+		return step
+	
