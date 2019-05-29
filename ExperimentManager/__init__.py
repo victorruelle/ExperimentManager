@@ -11,9 +11,11 @@ from ExperimentManager.gpu_setup import setup
 
 
 def getManager(name = None,experiments_dir = None, project_dir = None, verbose = True, **kwargs):
-    
     if name is None:
         name = get_call_id()
+        if name is None:
+            print('WARNING : Could not find an Experiment automatically, creating an empty, dummy experiment manager')
+            return getManager(name = 'empty_manager', ghost = True, verbose= False)
 
     if name in global_manager.experiments:
         return global_manager.experiments[name]
@@ -52,7 +54,7 @@ def getManagerFromConfig(config_file):
     experiments_dir = None if not 'experiments_dir' in config else config['experiments_dir']
     verbose = True if not 'verbose' in config else config['verbose']
     
-    kwargs = {  key:config[key] for key in ['skip_dirs'] if key in config }
+    kwargs = {  key:config[key] for key in ['skip_dirs','ghost','load_dir'] if key in config }
     manager = ExperimentManager(name,experiments_dir = experiments_dir, project_dir = project_dir, verbose = verbose, **kwargs)
 
     # Adding the entry in the global manager
@@ -60,7 +62,6 @@ def getManagerFromConfig(config_file):
     global_manager.add(manager,caller_filename)
 
     # Adding a configuration if it exists
-
     if 'config' in config:
         manager.add_config(config['config'])
     
@@ -85,4 +86,4 @@ def get_call_id():
         if filename in global_manager.callers and 'manager' in frame.frame.f_locals:
             return frame.frame.f_locals['manager'].name
     
-    raise Exception('Could not find an Experiment automatically')
+    return None

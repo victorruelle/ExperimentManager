@@ -12,6 +12,8 @@ import subprocess
 import re
 
 from tensorflow import Summary, HistogramProto
+from tensorflow.summary import FileWriter
+import numpy as np
 
 from ExperimentManager.utils import timestamp, setup_logger, pprint_dict, get_options
 from ExperimentManager.run import Run
@@ -23,7 +25,7 @@ from ExperimentManager.global_manager import global_manager
 
 class ExperimentManager(object):
 
-	def __init__(self,name,experiments_dir = None, project_dir = None, load_dir = None, verbose = 1, resume = False, tensorboard = True, **kwargs):
+	def __init__(self,name,experiments_dir = None, project_dir = None, load_dir = None, verbose = 1, resume = False, tensorboard = False, **kwargs):
 		''' Create a manager for your experiment. It can manage your parameter configurations, saving and loading of all ressources, logging and monitoring of any metrics and keep a saved version of the source files all in the right place and with the right versionning. You can use it to run predefined tasks in encapsulated environment with shared and run-specific options.
 
 		# Args
@@ -62,7 +64,7 @@ class ExperimentManager(object):
 
 		if load_dir is not None:
 			if not os.path.isabs(load_dir):
-				load_dir = os.path.abspath(self.project_dir,load_dir)
+				load_dir = os.path.join(self.project_dir,load_dir)
 		self.load_dir = load_dir
 
 		
@@ -124,8 +126,8 @@ class ExperimentManager(object):
 		self.tensorboard = tensorboard # boolean
 		if self.tensorboard and not self.ghost:
 			self.tb_dir = os.path.join(self.experiment_dir,'tensorboard')
-			os.path.makedirs(self.tb_dir,exist_ok = True)
-			self.tb_writer = Summary.FileWriter(self.tb_dir)
+			os.makedirs(self.tb_dir,exist_ok = True)
+			self.tb_writer = FileWriter(self.tb_dir)
 			subprocess.call('tensorboard --logdir {}'.format(self.tb_dir))
 			
 		
@@ -197,11 +199,11 @@ class ExperimentManager(object):
 			
 	def warn(self,message, level = 0):
 		if self.verbose > 0:
-			self.logger.warn(self.add_header(message))
+			self.logger.warn(self.add_header(message,level))
 	
 	def debug(self,message, level = 0):
 		if self.verbose > 1:
-			self.debugger.info(self.add_header(message))message)
+			self.debugger.info(self.add_header(message,level))
 	
 	def debug_locals(self, limit = 2):
 		if self.verbose > 1:
@@ -223,9 +225,6 @@ class ExperimentManager(object):
 		
 	def add_config(self,config,run_id = None):
 		self.debug_locals()
-		
-		if self.ghost:
-			return
 		
 		if run_id is None:
 			run_id = self.get_call_id()
@@ -378,6 +377,7 @@ class ExperimentManager(object):
 		
 			run_dir = os.path.join(self.runs_dir,run_name)
 			run_logger_path = os.path.join(run_dir,'run.log')
+			run_info_logger_path = os.path.join(run_dir,'run_info.log')
 			run_save_dir = os.path.join(run_dir,'saved_files')
 			run_metrics_dir = os.path.join(run_dir,'saved_metrics')
 			
@@ -389,11 +389,13 @@ class ExperimentManager(object):
 		else:
 			run_dir = None
 			run_logger_path = None
+			run_info_logger_path = None			
 			run_save_dir = None
 			run_metrics_dir = None
 			
 		# Defining the logger 
 		logger = setup_logger(run_name,run_logger_path)
+		info_logger = setup_logger(run_name+'_info',run_info_logger_path, format=False)
 		
 		# Defining metrics
 		if not self.ghost:
@@ -408,7 +410,7 @@ class ExperimentManager(object):
 		command = self.commands[command_name]
 		
 		# Creating the Run instance
-		run = Run(run_id,run_name,command,logger,run_dir,run_save_dir,run_metrics_dir)
+		run = Run(run_id,run_name,command,logger,info_logger, run_dir,run_save_dir,run_metrics_dir)
 		
 		self.runs[run_id] = run
 		
@@ -462,14 +464,14 @@ class ExperimentManager(object):
 	Metrics
 	'''
 	
-	def log_scalars(self, file_name, values, header, step = None, run_id = None):
+	def log_scalars(self, file_name, values, header = None, step = None, run_id = None):
 		'''
 		Add a new measurement of multiple scalar at once. Each (file_name, run_id) defines a unique metrics logging file. Calls to the same logging file should be coherent (same number of values and headers), will raise an Error if otherwise.
 		
 		# Args
 			- file_name : the name that will be given to the csv file.
 			- values : a list or scalar of values to log together.
-			- header : the list of metric names for each value
+			- header : the list of metric names for each value. Should be given (only) if using a new (run_id,file_name) tuple.
 			- step : the name of the step, if None, an auto-incrementing integer will be used.
 			- run_id : force the id of the run to log to. It defaults to the current run.
 			
@@ -485,22 +487,23 @@ class ExperimentManager(object):
 		
 		if self.ghost:
 			return
-			
-		assert len(values) == len(header), 'Sizes do not match in call to log_scalars, {} ({}), {} ({})'.format(values,len(values),header,len(header))
+		
+		if header is not None:
+			assert len(values) == len(header), 'Sizes do not match in call to log_scalars, {} ({}), {} ({})'.format(values,len(values),header,len(header))
 		
 		# Find the id of the desired metrics set
 		if run_id is None:
 			run_id = self.get_call_id()
 					
 		# Delegating to the right MetricsManager
-		step = self.metrics[run_id].log_scalar(metric_name,values,step,header = header)
+		step = self.metrics[run_id].log_scalars(file_name,values,step = step,header = header)
 		
 		# Duplicating call to tensorboard summary if needed
 		if self.tensorboard:
 			for i in range(len(values)):
 				self.tb_log_scalar('{} (file {} run {})'.format(header[i],file_name,run_id),values[i],step)
 		
-		self.debug('Metrics logged for metric {}'.format(metric_name))
+		self.debug('Metrics logged {}'.format(file_name))
 		
 		
 
@@ -531,7 +534,7 @@ class ExperimentManager(object):
 			run_id = self.get_call_id()
 					
 		# Delegating to the right MetricsManager
-		step = self.metrics[run_id].log_scalar(metric_name,values,step,header = header)
+		step = self.metrics[run_id].log_scalar(metric_name,value,step)
 		
 		# Duplicating call to tensorboard summary if needed
 		if self.tensorboard:
@@ -541,25 +544,25 @@ class ExperimentManager(object):
 		
 		
 	def tb_log_scalar(self, tag, value, step):
-        """Log a scalar variable. Credits : Michael Gygli
-        Parameter
-        ----------
-        tag : basestring
-            Name of the scalar
-        value
-        step : int
-            training iteration
-        """
+		"""Log a scalar variable. Credits : Michael Gygli
+		Parameter
+		----------
+		tag : basestring
+			Name of the scalar
+		value
+		step : int
+			training iteration
+		"""
 		
 		if self.ghost or not self.tensorboard:
 			return
 		
-        summary = Summary(value=[Summary.Value(tag=tag, simple_value=value)])
-        self.tb_writer.add_summary(summary, step)
+		summary = Summary(value=[Summary.Value(tag=tag, simple_value=value)])
+		self.tb_writer.add_summary(summary, step)
 	
 	
 	def log_histogram(self, tag, values, step, bins=1000):
-        """Logs the histogram of a list/vector of values. Credits : Michael Gygli
+		"""Logs the histogram of a list/vector of values. Credits : Michael Gygli
 		
 		This only logs to tensorboard. Hence it will do nothing if tensorboard support is not activated.
 		
@@ -568,36 +571,36 @@ class ExperimentManager(object):
 		if not self.tensorboard or self.ghost:
 			return
 		
-        # Convert to a numpy array
-        values = np.array(values)
-        
-        # Create histogram using numpy        
-        counts, bin_edges = np.histogram(values, bins=bins)
+		# Convert to a numpy array
+		values = np.array(values)
+		
+		# Create histogram using numpy        
+		counts, bin_edges = np.histogram(values, bins=bins)
 
-        # Fill fields of histogram proto
-        hist = HistogramProto()
-        hist.min = float(np.min(values))
-        hist.max = float(np.max(values))
-        hist.num = int(np.prod(values.shape))
-        hist.sum = float(np.sum(values))
-        hist.sum_squares = float(np.sum(values**2))
+		# Fill fields of histogram proto
+		hist = HistogramProto()
+		hist.min = float(np.min(values))
+		hist.max = float(np.max(values))
+		hist.num = int(np.prod(values.shape))
+		hist.sum = float(np.sum(values))
+		hist.sum_squares = float(np.sum(values**2))
 
-        # Requires equal number as bins, where the first goes from -DBL_MAX to bin_edges[1]
-        # See https://github.com/tensorflow/tensorflow/blob/master/tensorflow/core/framework/summary.proto#L30
-        # Thus, we drop the start of the first bin
-        bin_edges = bin_edges[1:]
+		# Requires equal number as bins, where the first goes from -DBL_MAX to bin_edges[1]
+		# See https://github.com/tensorflow/tensorflow/blob/master/tensorflow/core/framework/summary.proto#L30
+		# Thus, we drop the start of the first bin
+		bin_edges = bin_edges[1:]
 
-        # Add bin edges and counts
-        for edge in bin_edges:
-            hist.bucket_limit.append(edge)
-        for c in counts:
-            hist.bucket.append(c)
+		# Add bin edges and counts
+		for edge in bin_edges:
+			hist.bucket_limit.append(edge) 
+		for c in counts:
+			hist.bucket.append(c)
 
-        # Create and write Summary
-        summary = Summary(value=[tf.Summary.Value(tag=tag, histo=hist)])
-        self.tb_writer.add_summary(summary, step)
-        self.tb_writer.flush()
-	
+		# Create and write Summary
+		summary = Summary(value=[Summary.Value(tag=tag, histo=hist)])
+		self.tb_writer.add_summary(summary, step)
+		self.tb_writer.flush()
+
 	'''
 	Saving
 	'''
@@ -735,7 +738,9 @@ class ExperimentManager(object):
 	"""
 
 	def get_load_path(self,path,*paths, **kwargs):
-		''' Use the load dir to find absolute load path for files suing relative paths
+		''' Use the load dir to find absolute load path for files suing relative paths.
+
+		Works just like os.path.join and adds the load dir as a postfix
 		'''
 		assert self.load_dir is not None,"Load dir is None, cannot use auto loading"
 		return os.path.join(self.load_dir,path,*paths)
@@ -782,7 +787,6 @@ class ExperimentManager(object):
 				run_id = frame.frame.f_locals['run_id']
 				break
 		
-		self.debug('get call id for {} found {}'.format(stack[1][3],run_id))
 		return run_id
 		
 		

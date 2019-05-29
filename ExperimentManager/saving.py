@@ -19,7 +19,7 @@ class Saver():
 	Implements generic saving methods and easily allows for custom methods to be added.	
 	'''
 
-	def __init__(self,verions_handler = None, *kwargs):
+	def __init__(self,verions_handler = None, **kwargs):
 		
 		self.verions_handler = verions_handler if verions_handler is not None else VersionsHandler()
 		
@@ -174,7 +174,12 @@ class VersionsHandler(object):
 			self.lock.acquire()
 			if name in self.versions:
 				self.versions[name] += 1
-				name += ' ({})'.format(self.versions[name])
+				if '.' in name:
+					base,extension = name.split('.')
+					base += ' ({})'.format(self.versions[name])
+					name = '.'.join([base,extension])
+				else:
+					name += ' ({})'.format(self.versions[name])
 			else:
 				self.versions[name] = 0
 			if return_id:

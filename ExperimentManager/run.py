@@ -15,7 +15,7 @@ class Run():
 	The actual run metrics and saving utilities are managed globally by an ExperimentManager.	
 	'''
 
-	def __init__(self,run_id, name,command, logger, run_dir, save_dir, metrics_dir):
+	def __init__(self,run_id, name,command, logger, info_logger, run_dir, save_dir, metrics_dir):
 	
 		self.command = command
 		"""The command that should be run"""
@@ -32,6 +32,8 @@ class Run():
 		self.metrics_dir = metrics_dir
 		
 		self.logger = logger
+
+		self.info_logger = info_logger
 
 		self.results = {}
 
@@ -79,9 +81,8 @@ class Run():
 		self.logger.info('({}) Finished call number {}'.format(self.calls_info[call_id]['stop_time'],call_id))
 		self.calls_info[call_id]['duration'] = round(_stop_time - _start_time,3)
 		self.status = 'Finished'
-		with open(os.path.join(self.run_dir,'run_info.log'),'a') as output:
-			output.write('({}) Starting call number {} with *args {} and **kwargs {}'.format(self.calls_info[call_id]['start_time'],call_id,args,kwargs))
-			output.write(pprint_dict(self.get_config(),output='return',name='Run config after call {}'.format(call_id)))
+		self.info_logger.info('({}) Starting call number {} with *args {} and **kwargs {}'.format(self.calls_info[call_id]['start_time'],call_id,args,kwargs))
+		self.info_logger.info(pprint_dict(self.get_config(),output='return',name='Run config after call {}'.format(call_id)))
 			
 		# Useful to have for the caller!
 		return call_id

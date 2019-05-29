@@ -34,7 +34,7 @@ class MetricsManager():
 		
 		try:		
 			self.lock.acquire()
-			self.metrics[name] = MetricsLogger(name,os.path.join(self.save_dir,'{}.csv'.format(name)),header = header, tensorboard = self.tensorboard)
+			self.metrics[name] = MetricsLogger(name,os.path.join(self.save_dir,'{}.csv'.format(name)),header = header)
 
 		except Exception as err:
 			traceback.print_tb(err.__traceback__)
@@ -53,9 +53,11 @@ class MetricsManager():
 		
 		return step
 		
-	def log_scalars(self,metric,values,header, step=None):
+	def log_scalars(self,metric,values,header = None, step=None):
 	
 		if metric not in self.metrics:
+			if header is None:
+				header = ['metric {}'.format(i) for i in range(len(values))]
 			self.add_metric(metric, header = header)
 			
 		step = self.metrics[metric].log_scalars(values,step)
@@ -88,7 +90,7 @@ class MetricsLogger():
 		self.n_vals = len(self.header)
 		
 	def verify_call(self,n_inputs):
-		assert self.n_vals = n_inputs
+		assert self.n_vals == n_inputs
 		
 	
 	def get_step(self,step=None):
