@@ -1,0 +1,63 @@
+{   
+    "name" : "My first exeperiment",
+    "experiments_dir" : "/path/to/saved/experiments",
+    "load_dir" : "results/models",
+    "skip_dirs" : ["list of directory names that should never be skipped when saving sources files","no need to put absolute paths to those names"],
+    "verbose" : 1,
+    "ghost" : false,
+    "tensorboard":true,
+
+    "gpu" : {
+        "devices" : [3],
+        "allow_growth": 1
+    },
+
+    "config" : {
+
+        "verbose" : 1,
+
+        "architecture" : {
+            "name" : "resnet-18",
+            "num_classes" : 10,
+            "baseMapNum" : 32,
+            "weight_decay" : 0,
+            "input_shape" : [null,32,32,3]
+        }, 
+
+        "optimization" : {
+            "optimizer" : "SGD",
+            "lr" : 0.01,
+            "decay": 0.01,
+            "momentum" : 0.9,
+            "lr_scheduler_factor":0.5,
+            "lr_scheduler_patience":30,
+            "loss" : "categorical_crossentropy",
+            "metrics": ["accuracy"],
+            "early_stopping":{
+                "active" : false,
+                "monitor" : "loss",
+                "patience" : 20,
+                "epsilon" : 1e-8
+            }
+        },
+
+        "training": {
+            "epochs" : 500,
+            "batch_size" : 64,
+            "saving_threshold" : 0.85
+        },
+
+        "data" : {
+            "dataset" : "cifar10",
+            "training_size" : 1,
+            "validation_size" : 1,
+            "rotation_range" : 10,
+            "width_shift_range" : 5,
+            "height_shift_range" : 5,
+            "horizontal_flip" : true,
+            "vertical_flip": false,
+            "zca_whitening":false
+        }
+
+    }
+}

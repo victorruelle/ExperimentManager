@@ -101,34 +101,33 @@ def call2():
 
 if __name__ == "__main__":
 	print("Hi, let's start an experiment!")
-	# manager.logger.info("Here's a log message")
+	manager.logger.info("Here's a log message")
 	
-	# d = { 
-	# 	"name" : "Julie",
-	# 	"value" : 1,
-	# 	"details" : {
-	# 		"age" : 22,
-	# 		"towns" : {
-	# 			0 : "Brussels",
-	# 			1 : "Paris"
-	# 			}
-	# 		}	
-	# 	}
+	d = { 
+		"name" : "Julie",
+		"value" : 1,
+		"details" : {
+			"age" : 22,
+			"towns" : {
+				0 : "Brussels",
+				1 : "Paris"
+				}
+			}	
+		}
 	
-	# manager.add_config(d)
-	# import sacred
-	# instance = Test(2)
-	# print(instance.value)
+	manager.add_config(d)
+	import sacred
+	instance = Test(2)
+	print(instance.value)
 
-	# print('Running command changing_configs')
-	# manager.run('changing_configs')
-	# print('Running command changing_configs with Pierre update_dict')
-	# manager.run('changing_configs',update_dict= { "name" : "Pierre" })
-	# print('Running metrics_logging')
-	# manager.run('metrics_logging')
-	# saving(**{})
-	# print("Bye!")
-	# manager.close()
-	# print('Should not be captured')
-
+	print('Running command changing_configs')
+	manager.run('changing_configs')
+	print('Running command changing_configs with Pierre update_dict')
+	manager.run('changing_configs',update_dict= { "name" : "Pierre" })
+	print('Running metrics_logging')
+	manager.run('metrics_logging')
+	saving(**{})
 	manager.run('call1')
+	print("Bye!")
+	manager.close()
+	print('Should not be captured')
