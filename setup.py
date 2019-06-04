@@ -20,7 +20,9 @@ setuptools.setup(
           'superjson',
           'wrapt',
           'matplotlib',
-          'numpy'
+          'numpy',
+          'pydot',
+          'graphviz'
       ],
     classifiers=[
         "Programming Language :: Python :: 3",

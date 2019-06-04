@@ -7,7 +7,11 @@ Thoughtless and all-round experiment manager for Python. ExperimentManager can e
 - Save (almost) any object without having to worry about anything.
 - Log all your metrics thoughtlessly.
 - Manage, edit and inject configuration dictionnaries directly into specified functions
-- Encapsulate individual runs within your experiment. Any function can be used to create a Run; this will automatically generate a new run directory in ```saved_runs``` with dedicated ```saved_files``` and ```saved_metrics```  directories as well as a specific log file. 
+- Encapsulate individual runs within your experiment. Any function can be used to create a Run; this will automatically generate a new run directory in ```saved_runs``` with dedicated ```saved_files``` and ```saved_metrics```  directories as well as a specific log file.
+
+## Requirements
+
+This beta version runs with Tensorflow 1.13 and Keras 2.2.4. Earlier versions are not tested.
 
 ## Usage
 
@@ -36,11 +40,15 @@ This will automatically create the following directory structure:
 -------  stdout_capture.log
 ```
 
-The path to every directory is added as attribute to the manager so you can access it anytime. In particular, the "my first experiment DATETIME" directory can be accessed with ```manager.experiment_dir```.
+Saved runs contains information about runs that are conducted during the experiment using for instance the ```manager.run``` command. The pros of using this method are explained in the Runs section below.
 
-To access your experiment manager in any file, simply use the getExperiment method of ExperimentManager. It will recover the active experiment manager.
+The path to every directory is an attribute of the manager so you can access it anytime. In particular, the "my first experiment DATETIME" directory can be accessed with ```manager.experiment_dir```.
 
-By default, your experiment manager will also save a copy of all the projects source files (.py) in ```saved_sources``` and capture the stdout in a dedicated logger ('stoud_capture.log')
+To access your experiment manager in any file, simply use the getExperiment method of ExperimentManager. It will recover the active experiment manager : ```ExperimentManager.getExperiment()```.
+
+### Reproductability and Control
+
+By default, your experiment manager will also save a copy of all the projects source files (.py) in ```saved_sources``` and capture the stdout in a dedicated logger ('stoud_capture.log'). This is usually enough to get a firm grasp of any past experiment and reproduce its results.
 
 ### Saving, like never before
 
@@ -58,17 +66,23 @@ Implemented saving methods cover the following data types:
 - Keras models
 - Matplotlib figures
 
-New saving methods can easily be added, refer to the add_saver method's doc.
+New saving methods can easily be added, refer to the add_saver methods doc.
 
 ### Logging metrics
 
-For now, only scalar metrics are implemented, many more types will soon arrive. Just use ```manager.log_scalar(metric_name,value)``` and ExperimentManager will do all the same work as for saving methods automatically. An optional ```step``` argument can be added after ```value```, by default, steps will be auto-incremented 0-based integers.
+Experiment Manager supports CSV loggin of scalars and Tensorboard logging of scalars and histograms.
+
+Just use ```manager.log_scalar(metric_name,value)``` and ExperimentManager will again detect the current run and save the metrics, versioning the name if necessary. An optional ```step``` argument can be added after ```value```, by default, steps will be auto-incremented 0-based integers. Unless manager.tensorboard is set to false, logging scalars will log to a csv in the runs or global metrics directory and also log to the tensorboard directory. Metric_name is used to name the csv file as well as the header for the value column in the CSV.
+
+For logging several metrics in a single CSV, use ```manager.log_scalars(file_name,values,header,step=None)```.
+
+Logging a historgram is done exactly the same way ```manager.log_histrogram(name, values, step, bins=1000)``` (remember that histograms are only logged to tensorboard, not as CSV which would be too heavy; hence if tensorboard support is disabled, this will do nothing).
 
 ### Configurations
 
 Configurations are a great way to manage all your experiment parameters in one place (a json file or dictionnary). ExperimentManager has a dedicated configuration dictionnary for every run in addition to a global configuration dictionnary. For hand-designated functions, your manager will inject it's configuration parameters by changing the function's signature (overwriting default values).
 
-To add a configuration dictionnary, just use ```manager.add_config(dictionnary)``` (json file support coming soon). The current run and the general configuration dictionnary will be updated using the input dictionnary. If a run configuraiton dictionnary has fields in common with the general dictionnary, the run's options will always prevail (within that run only of course!).
+To add a configuration dictionnary, just use ```manager.add_config(dictionnary)``` (json file support coming soon). The current run or the general configuration dictionnary will be updated using the input dictionnary. If a run configuraiton dictionnary has fields in common with the general dictionnary, the run's options will always prevail (within that run only of course!).
 
 To designate a function that should receive configuration values, add the ```@manager.capture``` decorator. You can specify exactly which fields should be injected using the prefixes parameter. Here's an example: 
 
@@ -124,9 +138,9 @@ To take full advantage of the ExperimentManager, run your tasks using the run me
 ExperimentManager will automatically detect which run is active when using saving and logging methods so that your files will always end up in the right place. To launch a run you have two options:
 
 - Add a ```@manager.command``` decorator to a function and run it using ```manager.run(the_name_of_the_function)```.
-- Use ```manager.add_command(function)``` and the same running method.
+- Use ```manager.add_command(function)``` and the same running method. This has the benefit of not needing to modify any part of your code (by adding @manager.command) but comes at the cost of losing configuration injections.
 
-The command decorator also calls the capture decorator.
+Note that the command decorator also calls the capture decorator (and thus performs configuration injections).
 
 ## Things to test
 
@@ -135,8 +149,8 @@ The command decorator also calls the capture decorator.
 - [x] Make sure that run_id is also picked up when running with run_existing!
 - [x] Thorough check of the new get_options
 - [x] The auto getLogger feature
-- [ ] Tensorboard support and log_scalar/log_scalars distinction
-- [ ] Regex for add_project_sources
+- [x] Tensorboard support and log_scalar/log_scalars distinction
+- [x] Regex for add_project_sources
 
 ## Things to work on
 
@@ -145,7 +159,7 @@ The command decorator also calls the capture decorator.
 - [x] Add distribution support for logging (tensorboard)
 - [x] Add info/war/error methods that will get_call_id to use a run's specific logger : logs to run file and prints using a specific run format
 - [x] Replace skip_dirs and such with simple regex for better use
-- [ ] Create API for loading experiments ? or remove backend support.
+- [x] Create API for loading experiments ? or remove backend support.
 - [ ] (Add json support for add_config)
 - [ ] (Add config decorator for easier configs)
 - [ ] (Add automain and main decorators)
