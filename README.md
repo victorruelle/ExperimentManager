@@ -9,13 +9,17 @@ Thoughtless and all-round experiment manager for Python. ExperimentManager can e
 - Manage, edit and inject configuration dictionnaries directly into specified functions
 - Encapsulate individual runs within your experiment. Any function can be used to create a Run; this will automatically generate a new run directory in ```saved_runs``` with dedicated ```saved_files``` and ```saved_metrics```  directories as well as a specific log file.
 
+## Disclaimer
+
+This is a beta version. It is stable within my testing environment (Ubuntu with specific library verisons) but has not been tested on others. 
+
+For those familiar with the Sacred library, this project stems from their experiment manager but ambitions to correct some behavior problems (mentionned in their Issues) while allowing for better and more flexible feature and doing everything locally (without relying on other database managers or UIs which can be unflexible or tricky to install in specific environments). The only part of their code that is used here is the function signature capture.
+
 ## Requirements
 
-This beta version runs with Tensorflow 1.13 and Keras 2.2.4. Earlier versions are not tested.
+This beta version runs with Tensorflow 1.13 and Keras 2.2.4 (used for Tensorboard and model Saving features). Earlier versions are not tested.
 
 ## Usage
-
-### Managing directories
 
 To create an Experiment, you only need to add the following lines in your main file:
 
@@ -23,8 +27,20 @@ To create an Experiment, you only need to add the following lines in your main f
 from ExperimentManager import createExperiment
 manager = createExperiment('my first experiment')
 ```
+There are many parameters that can be specified when creating an Experiment, the main ones are:
 
-This will automatically create the following directory structure:
+- name : name for the experiment. Will be used for creating the save directory, if needed.
+- experiments_dir : the optionnal parent dir in which you want the manager to save its runs.
+- project_dir : the parent directory of the code that is used to run the experiments. This is mostly used to backup the source code for more reproductability. If not provided, will use the parent dir of the file that called the init.
+- load_dir : directory used for easier imports, it will be prefixed on all paths generated using manager.get_load_path
+- verbose : 0,1 or 2. 1 will add some internal logs in experiment_info.log while 2 will log details on every internal function call in debug.log  (only use this to test the behavior of this class, it slows the process down by a lot!)
+- tensorboard : True or False, log to tensorboard events when using metric logging methods
+- ghost : True or False (default is False). When True, this will disable all saving and logging features, not a single directory or file will be created. This is usefull when running tests.
+
+
+### Managing directories
+
+Creating an Experiment Manager will automatically generate the following directory structure:
 
 ```bash
 ./
@@ -36,11 +52,13 @@ This will automatically create the following directory structure:
 -------  saved_metrics/
 -------  saved_runs/
 -------  experiment_info.log
--------  minisacred_debug.log
+-------  debug.log
 -------  stdout_capture.log
 ```
 
-Saved runs contains information about runs that are conducted during the experiment using for instance the ```manager.run``` command. The pros of using this method are explained in the Runs section below.
+Notice that the manager_experiments direcotry was created in the directory as the source code. More precisely, if no experiment_dir is specified at initialisation time, the directory will be that containing the code that called ExperimentManager.createManager. 
+
+All created directories have rather straight-forward goal. Saved runs contains information about runs that are conducted during the experiment using for instance the ```manager.run``` command. The pros of using this method are explained in the Runs section below.
 
 The path to every directory is an attribute of the manager so you can access it anytime. In particular, the "my first experiment DATETIME" directory can be accessed with ```manager.experiment_dir```.
 
