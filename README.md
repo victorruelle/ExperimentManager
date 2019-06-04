@@ -15,7 +15,9 @@ This is a beta version. It is stable within my testing environment (Ubuntu with 
 
 For those familiar with the Sacred library, this project stems from their experiment manager but ambitions to correct some behavior problems (mentionned in their Issues) while allowing for better and more flexible feature and doing everything locally (without relying on other database managers or UIs which can be unflexible or tricky to install in specific environments). The only part of their code that is used here is the function signature capture.
 
-## Requirements
+## Installation
+
+To install, simply use ```pip install .``` within the git direcotry.
 
 This beta version runs with Tensorflow 1.13 and Keras 2.2.4 (used for Tensorboard and model Saving features). Earlier versions are not tested.
 
