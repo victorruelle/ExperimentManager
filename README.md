@@ -30,7 +30,7 @@ manager = createExperiment('my first experiment')
 There are many parameters that can be specified when creating an Experiment, the main ones are:
 
 - name : name for the experiment. Will be used for creating the save directory, if needed.
-- experiments_dir : the optionnal parent dir in which you want the manager to save its runs.
+- experiments_dir : the optionnal parent dir in which you want the manager to save and log.
 - project_dir : the parent directory of the code that is used to run the experiments. This is mostly used to backup the source code for more reproductability. If not provided, will use the parent dir of the file that called the init.
 - load_dir : directory used for easier imports, it will be prefixed on all paths generated using manager.get_load_path
 - verbose : 0,1 or 2. 1 will add some internal logs in experiment_info.log while 2 will log details on every internal function call in debug.log  (only use this to test the behavior of this class, it slows the process down by a lot!)
