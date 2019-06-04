@@ -23,13 +23,16 @@ from ExperimentManager.global_manager import global_manager
 
 class ExperimentManager(object):
 
-	def __init__(self,name,experiments_dir = None, project_dir = None, load_dir = None, verbose = 1, resume = False, tensorboard = False, **kwargs):
+	def __init__(self,name,experiments_dir = None, project_dir = None, load_dir = None, verbose = 1, tensorboard = False, **kwargs):
 		''' Create a manager for your experiment. It can manage your parameter configurations, saving and loading of all ressources, logging and monitoring of any metrics and keep a saved version of the source files all in the right place and with the right versionning. You can use it to run predefined tasks in encapsulated environment with shared and run-specific options.
 
 		# Args
 			- name : name for the experiment. Will be used for creating the save directory, if needed
-			- experiments_dir : the optionnal parent dir in which you want the manager to save its runs. If not provided, nothing will be saved.
+			- experiments_dir : the optionnal parent dir in which you want the manager to save its runs.
 			- project_dir : the parent directory of the code that is used to run the experiments. This is mostly used to backup the source code for more reproductability. If not provided, will use the parent dir of the file that called this init.
+			- load_dir : directory used for easier imports, it will be prefixed on all paths generated using manager.get_load_path
+			- verbose : 0,1 or 2. 1 will add some internal logs in experiment_info.log while 2 will log details on every internal function call in debug.log  (only use this to test the behavior of this class, it slows the process down by a lot!)
+			- tensorboard : True or False, log to tensorboard events when using metric logging methods
 		
 		'''
 		super().__init__()
