@@ -56,7 +56,7 @@ Creating an Experiment Manager will automatically generate the following directo
 -------  stdout_capture.log
 ```
 
-Notice that the manager_experiments direcotry was created in the directory as the source code. More precisely, if no experiment_dir is specified at initialisation time, the directory will be that containing the code that called ExperimentManager.createManager. 
+Notice that the manager_experiments direcotry was created in the same directory as the source code. More precisely, if no experiment_dir is specified at initialisation time, the directory will be that containing the code which called ExperimentManager.createManager. 
 
 All created directories have rather straight-forward goal. Saved runs contains information about runs that are conducted during the experiment using for instance the ```manager.run``` command. The pros of using this method are explained in the Runs section below.
 
