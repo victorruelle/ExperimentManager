@@ -39,6 +39,8 @@ There are many parameters that can be specified when creating an Experiment, the
 - tensorboard : True or False, log to tensorboard events when using metric logging methods
 - ghost : True or False (default is False). When True, this will disable all saving and logging features, not a single directory or file will be created. This is usefull when running tests.
 
+ExperimentManagers can also be created from a configuration file using ```manager = ExperimentManager.getManagerFromConfig('config.json')```. A sample configuration file can be found in the demo directory.
+
 
 ### Managing directories
 
