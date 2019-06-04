@@ -15,7 +15,7 @@ class Run():
 	The actual run metrics and saving utilities are managed globally by an ExperimentManager.	
 	'''
 
-	def __init__(self,run_id, name,command, logger, info_logger, run_dir, save_dir, metrics_dir):
+	def __init__(self,run_id, name,command, logger, info_logger, run_dir, save_dir, metrics_dir, tb_dir):
 	
 		self.command = command
 		"""The command that should be run"""
@@ -30,6 +30,8 @@ class Run():
 		self.save_dir = save_dir
 		
 		self.metrics_dir = metrics_dir
+
+		self.tb_dir = tb_dir
 		
 		self.logger = logger
 

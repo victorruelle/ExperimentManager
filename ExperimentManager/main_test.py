@@ -2,7 +2,7 @@ from ExperimentManager import getManager
 from ExperimentManager.utils import pprint_dict
 
 
-manager = getManager('test',ghost=False)
+manager = getManager('test',ghost=False, tensorboard = True)
 
 class Test():
 	@manager.capture
@@ -88,26 +88,37 @@ def merging_configs():
 	return d
 
 
+@manager.command
+def call1():
+	print('in call 1')
+	print(manager.get_call_id())
+	manager.run('call2')
+
+@manager.command
+def call2():
+	print('in call 2')
+	print(manager.get_call_id())
+
 if __name__ == "__main__":
 	print("Hi, let's start an experiment!")
-	manager.logger.info("Here's a log message")
+	# manager.logger.info("Here's a log message")
 	
-	d = { 
-		"name" : "Julie",
-		"value" : 1,
-		"details" : {
-			"age" : 22,
-			"towns" : {
-				0 : "Brussels",
-				1 : "Paris"
-				}
-			}	
-		}
+	# d = { 
+	# 	"name" : "Julie",
+	# 	"value" : 1,
+	# 	"details" : {
+	# 		"age" : 22,
+	# 		"towns" : {
+	# 			0 : "Brussels",
+	# 			1 : "Paris"
+	# 			}
+	# 		}	
+	# 	}
 	
-	manager.add_config(d)
-	import sacred
-	instance = Test(2)
-	print(instance.value)
+	# manager.add_config(d)
+	# import sacred
+	# instance = Test(2)
+	# print(instance.value)
 
 	# print('Running command changing_configs')
 	# manager.run('changing_configs')
@@ -119,3 +130,5 @@ if __name__ == "__main__":
 	# print("Bye!")
 	# manager.close()
 	# print('Should not be captured')
+
+	manager.run('call1')

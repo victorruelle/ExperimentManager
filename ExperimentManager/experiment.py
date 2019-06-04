@@ -11,9 +11,7 @@ import traceback
 import subprocess
 import re
 
-from tensorflow import Summary, HistogramProto
 from tensorflow.summary import FileWriter
-import numpy as np
 
 from ExperimentManager.utils import timestamp, setup_logger, pprint_dict, get_options
 from ExperimentManager.run import Run
@@ -121,69 +119,56 @@ class ExperimentManager(object):
 			self.stderr_orig = sys.stderr
 			stderr_capture = StreamToLogger(self.std_logger,logging.ERROR, std_orig = self.stderr_orig)
 			sys.stderr = stderr_capture
-			
-		# Setting up tensorboard support
-		self.tensorboard = tensorboard # boolean
-		if self.tensorboard and not self.ghost:
-			self.tb_dir = os.path.join(self.experiment_dir,'tensorboard')
-			os.makedirs(self.tb_dir,exist_ok = True)
-			self.tb_writer = FileWriter(self.tb_dir)
-			subprocess.call('tensorboard --logdir {}'.format(self.tb_dir))
-			
-		
+
+
 		# Initializing empty variables
-		
-		if not self._resumed:
 			
-			self.saving_versions = VersionsHandler() # a VesionHandler to keep track of saved files. Supports concurrency.
-		
-			self.runs_versions = VersionsHandler() # a VesionHandler to keep track of run_ids. Supports concurrency.
-		
-		else :
-			
-			self.saving_versions = VersionsHandler.from_config(kwargs['saving_versions']) # a VesionHandler to keep track of saved files. Supports concurrency.
-		
-			self.runs_versions = VersionsHandler.from_config(kwargs['runs_versions']) # a VesionHandler to keep track of run_ids. Supports concurrency.
-		
+		self.saving_versions = VersionsHandler() # a VesionHandler to keep track of saved files. Supports concurrency.
+	
+		self.runs_versions = VersionsHandler() # a VesionHandler to keep track of run_ids. Supports concurrency.
 			
 		self.saver = Saver(self.saving_versions, info = self.info, warn = self.warn, debug_locals = self.debug_locals) # Creating handler for saving files during experiment
 		
-		self.runs = {} # will contain the run instance, keys are run_ids. 
+		self.runs = { -1 : self } # will contain the run instance, keys are run_ids. 
 		
 		self.wrapped_functions = [] # will hold the list of functions in which experiment parameters are injected
 		
 		self.commands = {} # will hold the list of functions that can be called with experiment_manager_instance.run, keys are command names
 		
-		if not self.ghost:
-			self.metrics = { -1 : MetricsManager(-1, self.metrics_dir) } # will contain MetricsLoggers for each run as well as one that is global (-1) 
-		
-		
-		if not self._resumed:
-			
-			self.config = { -1 : {} } # will contain Configuration dictionnaries for each run as well as one that is global (-1)
-		
-			self.experiment_info = None # NOT IMPLEMENTED. Optionnal way of manually addin information to an experiment.
-		
-			self.host_info = None # NOT IMPLEMENTED. Should contain information about the host.
-		
-			self.beat_interval = 10.0  # (sec). NOT IMPLEMENTED.
-			
-		else : 
-		
-			self.config = kwargs['config']
-		
+		self.tensorboard = tensorboard # boolean
+
+		self.config = { -1 : {} } # will contain Configuration dictionnaries for each run as well as one that is global (-1)
+	
 		self.verbose = verbose # Verbosity level for the experiment internals ( 0 : no info, 1 : basic experiment log, 2 : basic + debug logs )
 
 		self.task_queue = []
+
+		self._get_call_id_depths = []
+
+
+		# Setting up metrics support
+		if not self.ghost:
+
+			if self.tensorboard:
+				self.tb_base_dir = os.path.join(self.experiment_dir,'tensorboard')
+				self.tb_dir = os.path.join(self.tb_base_dir,'main')
+				os.makedirs(self.tb_base_dir,exist_ok = True)
+				tb_writer = FileWriter(self.tb_dir)
+			else:
+				self.tb_base_dir,self.tb_dir = None,None
+				tb_writer = None
+			
+			self.metrics = { -1 : MetricsManager(-1, self.metrics_dir, tb_writer = tb_writer) } # will contain MetricsLoggers for each run as well as one that is global (-1) 
+		
+		else:
+			self.metrics = None
+			self.tb_base_dir,self.tb_dir = None,None
+
 		
 		# Saving the project sources
 		if not self.ghost:
 			self.save_project_sources(**{  key:kwargs[key] for key in ['skip_dirs','include_extensions','include_names'] if key in kwargs })
-
-
-		# Initializing metrics visualization processes
-
-		
+	
 		
 		# logging the end of the setup
 		self.info('Finished setting up Experiment! Configuration is {}'.format(pprint_dict(self.get_config(),output='return',name='')))
@@ -355,7 +340,7 @@ class ExperimentManager(object):
 		
 
 		
-	def add_run(self, command_name, update_dict = None):
+	def add_run(self, command_name, update_dict = None, run_name = None):
 		''' Manually create a run for a command without running that command. This is handy when you want to run the same command multiple times with common logging and metrics. 
 
 		Returns the created run. Make sure to recover at least that runs ID (run.id), this is needed to run it later on. 
@@ -369,8 +354,11 @@ class ExperimentManager(object):
 		if not command_name in self.commands:
 			raise Exception('Command name {} is not recorded'.format(command_name))
 	
+
 		# Creating name and id for the run in a safe way.
-		run_name, run_id = self.runs_versions.add('{} {}'.format(command_name,timestamp()), return_id = True)
+		run_name = run_name if run_name is not None else command_name
+		run_name, run_id = self.runs_versions.add('{}'.format(run_name), return_id = True)
+		# run_name, run_id = self.runs_versions.add('{} {}'.format(run_name,timestamp()), return_id = True)
 		
 		# Creating the associated directories and paths
 		if not self.ghost :
@@ -380,6 +368,7 @@ class ExperimentManager(object):
 			run_info_logger_path = os.path.join(run_dir,'run_info.log')
 			run_save_dir = os.path.join(run_dir,'saved_files')
 			run_metrics_dir = os.path.join(run_dir,'saved_metrics')
+			run_tb_dir = os.path.join(self.tb_base_dir,run_name) if self.tensorboard else None
 			
 			# will raise error if already exists
 			os.makedirs(run_dir) 
@@ -392,14 +381,16 @@ class ExperimentManager(object):
 			run_info_logger_path = None			
 			run_save_dir = None
 			run_metrics_dir = None
+			run_tb_dir = None
 			
-		# Defining the logger 
+		# Defining the loggers
 		logger = setup_logger(run_name,run_logger_path)
 		info_logger = setup_logger(run_name+'_info',run_info_logger_path, format=False)
 		
-		# Defining metrics
+		# Defining metrics and tensorboard writers
 		if not self.ghost:
-			self.metrics[run_id] = MetricsManager(run_id,run_metrics_dir)
+			tb_writer = FileWriter(run_tb_dir) if self.tensorboard else None
+			self.metrics[run_id] = MetricsManager(run_id,run_metrics_dir,tb_writer=tb_writer)
 		
 		# Adding a config entry
 		self.config[run_id] = {}
@@ -410,7 +401,7 @@ class ExperimentManager(object):
 		command = self.commands[command_name]
 		
 		# Creating the Run instance
-		run = Run(run_id,run_name,command,logger,info_logger, run_dir,run_save_dir,run_metrics_dir)
+		run = Run(run_id,run_name,command,logger,info_logger, run_dir,run_save_dir,run_metrics_dir, run_tb_dir)
 		
 		self.runs[run_id] = run
 		
@@ -429,6 +420,10 @@ class ExperimentManager(object):
 			raise Exception('run_id {} was not found in the saved runs : {}'.format(run_id,self.runs))
 			
 		run = self.runs[run_id]
+
+		# updating the list of depths at which an ID is defined
+		self._get_call_id_depths.append(len(inspect.stack())) # the run call is at stack()[-len(stack)]
+		self._get_call_id_depths.sort(reverse=True)
 	
 		if call_options is None:
 			call_options = {}
@@ -439,16 +434,20 @@ class ExperimentManager(object):
 		self.info('Finished run for command {} with id {} after {} seconds'.format(run.command.__name__, run.id, run.calls_info[call_id]["duration"]))
 	
 	
-	def run(self, command_name, update_dict = None, parallel = False, call_options = None):
+	def run(self, command_name, update_dict = None, run_name = None, parallel = False, call_options = None):
 		''' Run a capture command function in an encapsulated way. 
 		
 		This creates a run entry in the ExperimentManager with associated specific run parameters, experiment_dir, logs and run informations.		
 		'''
 		self.debug_locals()
 		
-		run = self.add_run(command_name, update_dict = update_dict)
+		run = self.add_run(command_name, update_dict = update_dict, run_name=run_name)
 		
 		run_id = run.id
+
+		# updating the list of depths at which an ID is defined
+		self._get_call_id_depths.append(len(inspect.stack())) # the run call is at stack()[-len(stack)]
+		self._get_call_id_depths.sort(reverse=True)
 		
 		if call_options is None:
 			call_options = {}
@@ -498,11 +497,6 @@ class ExperimentManager(object):
 		# Delegating to the right MetricsManager
 		step = self.metrics[run_id].log_scalars(file_name,values,step = step,header = header)
 		
-		# Duplicating call to tensorboard summary if needed
-		if self.tensorboard:
-			for i in range(len(values)):
-				self.tb_log_scalar('{} (file {} run {})'.format(header[i],file_name,run_id),values[i],step)
-		
 		self.debug('Metrics logged {}'.format(file_name))
 		
 		
@@ -536,70 +530,29 @@ class ExperimentManager(object):
 		# Delegating to the right MetricsManager
 		step = self.metrics[run_id].log_scalar(metric_name,value,step)
 		
-		# Duplicating call to tensorboard summary if needed
-		if self.tensorboard:
-			self.tb_log_scalar('{} (run {})'.format(metric_name,run_id),value,step)
-		
-		self.debug('Metrics logged for metric {}'.format(metric_name))
-		
-		
-	def tb_log_scalar(self, tag, value, step):
-		"""Log a scalar variable. Credits : Michael Gygli
-		Parameter
-		----------
-		tag : basestring
-			Name of the scalar
-		value
-		step : int
-			training iteration
-		"""
-		
-		if self.ghost or not self.tensorboard:
-			return
-		
-		summary = Summary(value=[Summary.Value(tag=tag, simple_value=value)])
-		self.tb_writer.add_summary(summary, step)
+		self.debug('Metrics logged for metric {}'.format(metric_name))	
+
+
 	
-	
-	def log_histogram(self, tag, values, step, bins=1000):
+	def log_histogram(self, name, values, step, bins=1000, run_id = None):
 		"""Logs the histogram of a list/vector of values. Credits : Michael Gygli
 		
 		This only logs to tensorboard. Hence it will do nothing if tensorboard support is not activated.
 		
 		"""
+		self.debug_locals()
 		
-		if not self.tensorboard or self.ghost:
+		if self.ghost:
 			return
 		
-		# Convert to a numpy array
-		values = np.array(values)
+		# Find the id of the desired metrics set
+		if run_id is None:
+			run_id = self.get_call_id()
+					
+		# Delegating to the right MetricsManager
+		step = self.metrics[run_id].log_histogram(name,values,step)
 		
-		# Create histogram using numpy        
-		counts, bin_edges = np.histogram(values, bins=bins)
-
-		# Fill fields of histogram proto
-		hist = HistogramProto()
-		hist.min = float(np.min(values))
-		hist.max = float(np.max(values))
-		hist.num = int(np.prod(values.shape))
-		hist.sum = float(np.sum(values))
-		hist.sum_squares = float(np.sum(values**2))
-
-		# Requires equal number as bins, where the first goes from -DBL_MAX to bin_edges[1]
-		# See https://github.com/tensorflow/tensorflow/blob/master/tensorflow/core/framework/summary.proto#L30
-		# Thus, we drop the start of the first bin
-		bin_edges = bin_edges[1:]
-
-		# Add bin edges and counts
-		for edge in bin_edges:
-			hist.bucket_limit.append(edge) 
-		for c in counts:
-			hist.bucket.append(c)
-
-		# Create and write Summary
-		summary = Summary(value=[Summary.Value(tag=tag, histo=hist)])
-		self.tb_writer.add_summary(summary, step)
-		self.tb_writer.flush()
+		self.debug('Histogram logged with name {}'.format(name))
 
 	'''
 	Saving
@@ -774,13 +727,17 @@ class ExperimentManager(object):
 		'''	
 		
 		stack = inspect.stack()
+		length = len(stack)
 
 		target_filename = os.path.abspath(__file__)
 			
 		run_id = -1
 		
-		for i in range(len(stack)-1,-1,-1): # going backwards since the run call should be really early on
-			frame = stack[i]
+		# for i in range(len(stack)-1,-1,-1): # going backwards since the run call should be really early on
+		for i in self._get_call_id_depths:
+			if i > length :
+				continue
+			frame = stack[-i]
 			function = frame.function
 			filename = os.path.abspath(frame.filename)
 			if filename == target_filename and function in ['run','run_existing'] and 'run_id' in frame.frame.f_locals:
@@ -788,9 +745,13 @@ class ExperimentManager(object):
 				break
 		
 		return run_id
-		
-		
-		
+
+	def current_run(self):
+		''' Return the current run.
+		'''		
+
+		run_id = self.get_call_id()
+		return self.runs[run_id]		
 	
 
 	'''
