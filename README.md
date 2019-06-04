@@ -1,6 +1,6 @@
 # ExperimentManager
 
-Thoughtless and all-round experiment manager for Python. ExperimentManager can easily be used to :
+Thoughtless and all-round experiment manager for Python. Its main purpose is to automate all background work relating to saving files and logging. ExperimentManager can easily be used to :
 
 - Manage saving and loading directories for all your experiment files with automatic verisonning and logging.
 - Record the output of your experiment and save all source files for more reproductability.
