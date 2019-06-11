@@ -10,12 +10,12 @@ from ExperimentManager.utils import pprint_dict
 from ExperimentManager.gpu_setup import setup
 
 
-def getManager(name = None,experiments_dir = None, project_dir = None, verbose = True, **kwargs):
+def getManager(name = None,experiments_dir = None, project_dir = None, verbose = 1, **kwargs):
     if name is None:
         name = get_call_id()
         if name is None:
             print('WARNING : Could not find an Experiment automatically, creating an empty, dummy experiment manager')
-            return getManager(name = 'empty_manager', ghost = True, verbose= False)
+            return getManager(name = 'empty_manager', ghost = True, verbose= False, verbose=verbose)
 
     if name in global_manager.experiments:
         return global_manager.experiments[name]

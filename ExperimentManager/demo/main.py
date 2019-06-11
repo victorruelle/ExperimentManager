@@ -2,7 +2,7 @@ from ExperimentManager import getManager
 from ExperimentManager.utils import pprint_dict
 
 
-manager = getManager('test',ghost=False, tensorboard = True)
+manager = getManager('test',ghost=False, tensorboard = True, verbose=2)
 
 class Test():
 	@manager.capture
@@ -18,7 +18,7 @@ def printing_function(name,value = 0):
 	
 	
 @manager.command
-def metrics_logging(name,value = 0):
+def metrics_logging():
 	print('Entering metrics_logging command')
 	for i in range(50):
 		manager.log_scalar('time',i**2,i)
@@ -133,5 +133,4 @@ def demo():
 	print('Should not be captured')
 
 if __name__ == "__main__":
-	manager.run('metrics_logging', run_name = 'first')	
-	manager.run('metrics_logging', run_name = 'second')	
+	demo()

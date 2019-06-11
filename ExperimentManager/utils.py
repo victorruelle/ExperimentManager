@@ -15,16 +15,14 @@ def setup_logger(name, log_file = None, level=logging.INFO, format = True):
 
 	if log_file is not None:
 		handler = logging.FileHandler(log_file)
+		logger = logging.Logger(name)
 		if format:
 			handler.setFormatter(formatter)
-		logger = logging.getLogger(name)
-		logger.setLevel(level)
+			logger.setLevel(level)
 		logger.addHandler(handler)
-		
-		
 
 	else:
-		logger = logging.getLogger(name)
+		logger = logging.Logger(name)
 		
 	return logger
 	

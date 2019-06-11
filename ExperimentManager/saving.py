@@ -1,5 +1,4 @@
 import inspect
-import logging
 import os
 import threading
 
@@ -12,6 +11,7 @@ from numpy import save as np_save
 from superjson import json
 from tensorflow import Tensor
 
+from utils import setup_logger
 
 class Saver():
 	''' A class to thoughtlessly save any object.
@@ -34,7 +34,7 @@ class Saver():
 		self.savers['dot'] = Method(save_dot,'dot','png')
 		
 		if not 'info' in kwargs or not 'warn' in kwargs:
-			self.logger = logging.getLogger('ExperimentSaver')
+			self.logger = setup_logger('ExperimentSaver')
 			self.logger.setLevel(logging.INFO)
 		
 		self.info = self.logger.info if not 'info' in kwargs else kwargs['info']
