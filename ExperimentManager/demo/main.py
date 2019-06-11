@@ -23,7 +23,7 @@ def metrics_logging(name,value = 0):
 	for i in range(50):
 		manager.log_scalar('time',i**2,i)
 	for i in range(50):
-		manager.log_scalar('time auto_increment',i**2)
+		manager.log_scalars('time auto_increment',(i**2,i,i*1.5),('square','identity','x1.5'))
 	print('Exiting metrics_logging command')
 
 	
@@ -99,7 +99,7 @@ def call2():
 	print('in call 2')
 	print(manager.get_call_id())
 
-if __name__ == "__main__":
+def demo():
 	print("Hi, let's start an experiment!")
 	manager.logger.info("Here's a log message")
 	
@@ -131,3 +131,7 @@ if __name__ == "__main__":
 	print("Bye!")
 	manager.close()
 	print('Should not be captured')
+
+if __name__ == "__main__":
+	manager.run('metrics_logging', run_name = 'first')	
+	manager.run('metrics_logging', run_name = 'second')	
