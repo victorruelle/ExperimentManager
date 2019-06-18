@@ -1,7 +1,6 @@
 from ExperimentManager import getManager
 from ExperimentManager.utils import pprint_dict
 
-
 manager = getManager('test',ghost=False, tensorboard = True, verbose=2)
 
 class Test():
@@ -116,10 +115,8 @@ def demo():
 		}
 	
 	manager.add_config(d)
-	import sacred
 	instance = Test(2)
 	print(instance.value)
-
 	print('Running command changing_configs')
 	manager.run('changing_configs')
 	print('Running command changing_configs with Pierre update_dict')

@@ -11,15 +11,17 @@ import traceback
 import subprocess
 import re
 
-from tensorflow.summary import FileWriter
+import tensorflow as tf
+FileWriter = tf.summary.FileWriter
 
-from ExperimentManager.utils import timestamp, setup_logger, pprint_dict, get_options
+from ExperimentManager.utils import timestamp, setup_logger, pprint_dict, get_options, datestamp, print_clean_stack
 from ExperimentManager.run import Run
 from ExperimentManager.signature import Signature
 from ExperimentManager.stdout_capturing import StreamToLogger
 from ExperimentManager.saving import Saver, VersionsHandler
 from ExperimentManager.metrics import MetricsManager
 from ExperimentManager.global_manager import global_manager
+from ExperimentManager.gpu_setup import keras_setup,create_session
 
 class ExperimentManager(object):
 
@@ -39,14 +41,12 @@ class ExperimentManager(object):
 		
 		# Setting the name of the experiment
 		self.name = name
+
+		# Verbosity level for the experiment internals ( 0 : no info, 1 : basic experiment log, 2 : basic + debug logs )
+		self.verbose = verbose 
 		
 		# Setting the experiment mode. Ghost => nothing will be written (no directories, saves etc.).
-		self.ghost = False if not 'ghost' in kwargs else kwargs['ghost']
-		
-		# Checking if we are creating an experiment from a specific configuration
-		self._force = '_force' in kwargs and kwargs['_force']
-		self._resumed = '_resumed' in kwargs and kwargs['_resumed']
-		
+		self.ghost = False if not 'ghost' in kwargs else kwargs['ghost']		
 		
 		# Trying to find the directory containig the source code, if not provided
 		if project_dir is None:
@@ -55,12 +55,12 @@ class ExperimentManager(object):
 		
 		# Finding the experiments directory in which to create this specific experiment.
 		if experiments_dir is None:
-			experiments_dir = os.path.join(self.project_dir,'managed_experiments')
+			experiments_dir = os.path.join(self.project_dir,'managed experiments')
 		elif not os.path.isabs(experiments_dir):
 			experiments_dir = os.path.join(self.project_dir,experiments_dir)
 		self.experiments_dir = experiments_dir
 		
-		if not os.path.isdir(self.experiments_dir):
+		if not os.path.isdir(self.experiments_dir) and not self.ghost:
 			os.makedirs(self.experiments_dir)
 
 		if load_dir is not None:
@@ -71,28 +71,24 @@ class ExperimentManager(object):
 		
 		# Creating this specific experiment's directory using the experiment name and home-cooked versionning. This is not a very safe/stable method.
 		if not self.ghost: 
-			if not self._force:
-				experiment_name = '{} {}'.format(self.name,timestamp())
-				experiment_dir = os.path.join(experiments_dir,experiment_name)
-				index = 0
-				while os.path.isdir(experiment_dir):
-					index += 1
-					experiment_dir = os.path.join(experiments_dir,'{} ({})'.format(experiment_name,index))
-				os.mkdir(experiment_dir)
-				self.experiment_dir = experiment_dir
-				self.experiment_name = '{} ({})'.format(experiment_name,index)
-			else:
-				self.experiment_name = kwargs['experiment_name']
-				self.experiment_dir = kwargs['experiment_dir']
+			experiment_name = '{} {}'.format(self.name,timestamp())
+			experiment_dir = os.path.join(experiments_dir,experiment_name)
+			index = 0
+			while os.path.isdir(experiment_dir):
+				index += 1
+				experiment_dir = os.path.join(experiments_dir,'{} ({})'.format(experiment_name,index))
+			os.mkdir(experiment_dir)
+			self.experiment_dir = experiment_dir
+			self.experiment_name = '{} ({})'.format(experiment_name,index)
 			
 			# Creating subdirectories for saved files and saved metrics
-			self.save_dir = os.path.join(self.experiment_dir,'saved_files')
-			os.makedirs(self.save_dir,exist_ok=True)
-			self.metrics_dir = os.path.join(self.experiment_dir,'saved_metrics')
-			os.makedirs(self.metrics_dir,exist_ok=True)
-			self.runs_dir = os.path.join(self.experiment_dir,'saved_runs')
+			self.runs_dir = os.path.join(self.experiment_dir)
 			os.makedirs(self.runs_dir,exist_ok=True)
-			self.sources_dir = os.path.join(self.experiment_dir,'saved_sources')
+			self.save_dir = os.path.join(self.runs_dir,'global','files')
+			os.makedirs(self.save_dir,exist_ok=True)
+			self.metrics_dir = os.path.join(self.runs_dir,'global','metrics')
+			os.makedirs(self.metrics_dir,exist_ok=True)
+			self.sources_dir = os.path.join(self.runs_dir,'sources')
 			os.makedirs(self.sources_dir,exist_ok=True)
 			
 		else:
@@ -107,28 +103,32 @@ class ExperimentManager(object):
 		# Setting up loggers
 		logger_path = os.path.join(self.experiment_dir,'experiment_info.log') if not self.ghost else None
 		self.logger = setup_logger('experiment',logger_path)
-		debug_logger_path = os.path.join(self.experiment_dir,'debug.log') if not self.ghost else None
-		self.debugger = setup_logger('minisacred_debug',debug_logger_path, level = logging.DEBUG)
+
+		if self.verbose > 1:
+			debug_logger_path = os.path.join(self.experiment_dir,'debug.log') if not self.ghost else None
+			self.debugger = setup_logger('minisacred_debug',debug_logger_path, level = logging.DEBUG)
 		
 		## Redirecting stdout and stderr to an unformatted logger
 		if not self.ghost:
 			std_logger_path = os.path.join(self.experiment_dir,'std_capture.log') if not self.ghost else None
 			self.std_logger = setup_logger('std',std_logger_path,format = False)
-			
+
 			self.stdout_orig = sys.stdout
-			stdout_capture = StreamToLogger(self.std_logger,logging.INFO, std_orig = self.stdout_orig)
+			stdout_capture = StreamToLogger(self.std_logger,self.stdout_orig,logging.INFO)
 			sys.stdout = stdout_capture
 			
 			self.stderr_orig = sys.stderr
-			stderr_capture = StreamToLogger(self.std_logger,logging.ERROR, std_orig = self.stderr_orig)
+			stderr_capture = StreamToLogger(self.std_logger,self.stderr_orig,logging.ERROR)
 			sys.stderr = stderr_capture
 
 
 		# Initializing empty variables
 			
 		self.saving_versions = VersionsHandler() # a VesionHandler to keep track of saved files. Supports concurrency.
+		self.saving_history = {}
 	
 		self.runs_versions = VersionsHandler() # a VesionHandler to keep track of run_ids. Supports concurrency.
+		self.runs_versions.add('global')
 			
 		self.saver = Saver(self.saving_versions, info = self.info, warn = self.warn, debug_locals = self.debug_locals) # Creating handler for saving files during experiment
 		
@@ -141,8 +141,6 @@ class ExperimentManager(object):
 		self.tensorboard = tensorboard # boolean
 
 		self.config = { -1 : {} } # will contain Configuration dictionnaries for each run as well as one that is global (-1)
-	
-		self.verbose = verbose # Verbosity level for the experiment internals ( 0 : no info, 1 : basic experiment log, 2 : basic + debug logs )
 
 		self.task_queue = []
 
@@ -166,6 +164,17 @@ class ExperimentManager(object):
 		else:
 			self.metrics = None
 			self.tb_base_dir,self.tb_dir = None,None
+
+		
+		# GPU settings
+		self.gpu_options = {
+			'devices' : None,
+			'allow_growth' : True,
+		}
+		if "gpu_options" in kwargs:
+			self.gpu_options.update({  key:kwargs['gpu_options'][key] for key in ['devices','allow_growth'] if key in kwargs['gpu_options'] })
+		
+		self.keras_setup()
 
 		
 		# Saving the project sources
@@ -281,7 +290,7 @@ class ExperimentManager(object):
 			try:
 				self.run(task)
 			except Exception as err:
-				traceback.print_tb(err.__traceback__)
+				print_clean_stack(err)
 				print('Error type {} : {}'.format(sys.exc_info()[0],sys.exc_info()[1]))
 	
 	def command(self,wrapped=None, prefixes=None):
@@ -361,7 +370,6 @@ class ExperimentManager(object):
 		# Creating name and id for the run in a safe way.
 		run_name = run_name if run_name is not None else command_name
 		run_name, run_id = self.runs_versions.add('{}'.format(run_name), return_id = True)
-		# run_name, run_id = self.runs_versions.add('{} {}'.format(run_name,timestamp()), return_id = True)
 		
 		# Creating the associated directories and paths
 		if not self.ghost :
@@ -369,8 +377,8 @@ class ExperimentManager(object):
 			run_dir = os.path.join(self.runs_dir,run_name)
 			run_logger_path = os.path.join(run_dir,'run.log')
 			run_info_logger_path = os.path.join(run_dir,'run_info.log')
-			run_save_dir = os.path.join(run_dir,'saved_files')
-			run_metrics_dir = os.path.join(run_dir,'saved_metrics')
+			run_save_dir = os.path.join(run_dir,'files')
+			run_metrics_dir = os.path.join(run_dir,'metrics')
 			run_tb_dir = os.path.join(self.tb_base_dir,run_name) if self.tensorboard else None
 			
 			# will raise error if already exists
@@ -433,8 +441,15 @@ class ExperimentManager(object):
 		
 		# Actually doing the run
 		self.info('Startig run for command {} with id {} and configration {}'.format(run.command.__name__, run.id,pprint_dict(self.config,output='return')))
-		call_id = run(**call_options)
-		self.info('Finished run for command {} with id {} after {} seconds'.format(run.command.__name__, run.id, run.calls_info[call_id]["duration"]))
+		
+		try:
+			call_id = run(**call_options)
+			self.info('Finished run for command {} with id {} after {} seconds'.format(run.command.__name__, run.id, run.calls_info[call_id]["duration"]))
+		except Exception as err:
+			print_clean_stack(err)
+			print('Error type {} : {}'.format(sys.exc_info()[0],sys.exc_info()[1]))
+			self.info('Run for command {} with id {} failed after {} seconds with error type {} : {}'.format(run.command.__name__, run.id, run.calls_info[call_id]["duration"],sys.exc_info()[0],sys.exc_info()[1]))
+		
 	
 	
 	def run(self, command_name, update_dict = None, run_name = None, parallel = False, call_options = None):
@@ -457,8 +472,13 @@ class ExperimentManager(object):
 		
 		# Actually doing the run
 		self.info('Startig run for command {} with id {} and configration {}'.format(command_name, run.id,pprint_dict(self.config,output='return')), level = 2)
-		call_id = run(**call_options)
-		self.info('Finished run for command {} with id {} after {} seconds'.format(command_name, run.id, run.calls_info[call_id]["duration"]), level = 2)
+		try:
+			call_id = run(**call_options)
+			self.info('Finished run for command {} with id {} after {} seconds'.format(run.command.__name__, run.id, run.calls_info[call_id]["duration"]))
+		except Exception as err:
+			print_clean_stack(err)
+			print('Error type {} : {}'.format(sys.exc_info()[0],sys.exc_info()[1]))
+			self.info('Run for command {} with id {} failed after {} seconds with error type {} : {}'.format(run.command.__name__, run.id, run.calls_info[call_id]["duration"],sys.exc_info()[0],sys.exc_info()[1]))
 		
 		
 		
@@ -537,7 +557,7 @@ class ExperimentManager(object):
 
 
 	
-	def log_histogram(self, name, values, step, bins=1000, run_id = None):
+	def log_histogram(self, name, values, step = None, bins=1000, run_id = None):
 		"""Logs the histogram of a list/vector of values. Credits : Michael Gygli
 		
 		This only logs to tensorboard. Hence it will do nothing if tensorboard support is not activated.
@@ -668,7 +688,26 @@ class ExperimentManager(object):
 		
 		
 		# Calling the Saver objcet
-		return self.saver.save(obj,name,save_dir,method = method, method_args = method_args, overwrite = overwrite, method_kwargs = method_kwargs)
+		save_path = self.saver.save(obj,name,save_dir,method = method, method_args = method_args, overwrite = overwrite, method_kwargs = method_kwargs)
+
+		# Saving to history
+		if not name in self.saving_history:
+			self.saving_history[name]  = []
+		self.saving_history[name].append({
+			"save_path" : save_path,
+			"timestamp" : timestamp(),
+			"save_options" : {
+				"obj" : obj,
+				"save_dir" : save_dir,
+				"method" : method,
+				"overwrite" : overwrite,
+				"method_args" : method_args,
+				"method_kwargs" : method_kwargs				
+			}
+		})
+
+		# Returning the path
+		return save_path
 			
 	
 	def add_saver(self,method,name,extension):
@@ -693,14 +732,30 @@ class ExperimentManager(object):
 	Loading
 	"""
 
-	def get_load_path(self,path,*paths, **kwargs):
-		''' Use the load dir to find absolute load path for files suing relative paths.
+	def get_load_path(self,path,*paths, load_dir = True):
+		''' Get the path to a saved File.
+
+		If load_dir is set to True, it will be prefixed instead of the save dir of the current run
 
 		Works just like os.path.join and adds the load dir as a postfix
 		'''
-		assert self.load_dir is not None,"Load dir is None, cannot use auto loading"
-		return os.path.join(self.load_dir,path,*paths)
 
+		if load_dir:
+			assert self.load_dir is not None,"Load dir is None, cannot use auto loading"
+			return os.path.join(self.load_dir,path,*paths)
+		else:
+			run_id = self.get_call_id()
+			return os.path.join(self.runs[run_id].save_dir,path,*paths)	if self.runs[run_id].save_dir is not None else None
+
+	'''
+	GPU Options
+	'''
+
+	def keras_setup(self):
+		keras_setup(**self.gpu_options)
+
+	def create_session(self, graph = None):
+		return create_session(graph = graph,**self.gpu_options)
 
 	'''
 	Cleaning
@@ -756,7 +811,6 @@ class ExperimentManager(object):
 		run_id = self.get_call_id()
 		return self.runs[run_id]		
 	
-
 	'''
 	MetricsManager saving/loading
 	'''
@@ -780,76 +834,4 @@ class ExperimentManager(object):
 		}
 		
 		return config
-		
-		
-	@staticmethod
-	def from_config(config):
-		''' Create or resume an experiment from a config file. 
-		
-		Read the assert_valid_config description for more information.
-		'''
-		
-		ExperimentManager.assert_valid_config(config)
-		
-		return ExperimentManager(**config)
-	
-	@staticmethod
-	def assert_valid_config(config):
-		''' Check if a configuration dictionnary is valid.
-		
-		A configuration dict should contain at least the following fields:
-			- name
-			- experiments_dir
-			- project_dir = None
-			
-		Having just these fields is enough the create a new Experiment. Optional fields are  
-			- experiment_name OR experiment_dir : these two fields should be redundant! experiment_dir = os.path.join(experiments_dir,experiment_name). If both are given, the coherence between the two will be assessed. 
-			
-		If the provided experiment_name or experiment_dir point to an directory that already exist, the configuration will only be valid if it contains the following fields: 
-			- saving_versions : the config dictionnary of the corresponding VersionsHandler
-			- runs_versions : the config dictionnary of the corresponding VersionsHandler
-			- config : the dictionnary containing a shared config dict (id=-1). All others will be ignored.
-		'''
-		
-		essentials = ['name','experiments_dir','project_dir']
-		
-		for param in essentials:
-			assert param in config, 'Missing essential field {}'.format(param)
-
-		experiments_dir = config['experiments_dir']
-			
-		experiment_name = None if 'experiment_name' not in config else config['experiment_name']
-		experiment_dir = None if 'experiment_dir' not in config else config['experiment_dir']
-		
-		if not experiment_name and not experiment_dir:
-			return
-			# Ok for creating a new experiment
-			
-		if experiment_name and experiment_dir:
-			assert experiment_dir == os.path.join(experiments_dir,experiment_name), 'Given experiment_name and experiment_dir are not coherent'
-			
-		if experiment_name and not experiment_dir:
-			experiment_dir = os.path.join(experiments_dir,experiment_name)
-			
-		if not experiment_name and experiment_dir:
-			experiment_name = os.path.basename(experiment_dir)
-			
-		assert '.' not in experiment_dir and '.' not in experiment_name
-		
-		if not os.path.isdir(experiment_dir):
-			config.update({'_force': True})
-			return
-			# Ok for creating a new experiment with a specified name or dir
-			
-		# else, we need to check for the optionnals
-		
-		assert 'saving_versions' in config
-		assert 'versions' in config['saving_versions']
-		assert 'runs_versions' in config
-		assert 'versions' in config['runs_versions']
-		assert 'config' in config
-		assert -1 in config['config']
-		
-		config.update({'_resumed': True})
-		
 		

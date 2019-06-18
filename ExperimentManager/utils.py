@@ -2,9 +2,12 @@ import copy
 import inspect
 import logging
 from datetime import datetime
+import os
+import traceback
 
 import numpy as np
 
+curr_dir = os.path.abspath(os.path.curdir)
 formatter = logging.Formatter('%(asctime)s - %(levelname)s -- %(message)s')
 
 def setup_logger(name, log_file = None, level=logging.INFO, format = True):
@@ -176,6 +179,28 @@ def timestamp():
 	''' Generate a custom timestamp.
 	'''
 	return datetime.now().strftime("%Hh%M  %d %m %Y")
+
+def datestamp():
+	''' Generate a custom timestamp.
+	'''
+	return datetime.now().strftime("%d %m %Y")
+
+def print_clean_stack(err):
+    indices_to_keep = []
+    summary_list = traceback.extract_tb(err.__traceback__)
+    for index in range(len(summary_list)):
+        summary = summary_list[index]
+        if os.path.abspath(summary.filename)[:len(curr_dir)] == curr_dir:
+            continue
+        indices_to_keep.append(index)
+    formatted_list =  traceback.format_tb(err.__traceback__)
+    if len(indices_to_keep)==0 or (indices_to_keep[-1] != len(summary_list)-1):
+        print('ExperimentManager internal error!')
+        for line in formatted_list:
+            print(line)
+    for index in indices_to_keep:
+        print(formatted_list[index])
+
 
 
 if __name__ == "__main__":

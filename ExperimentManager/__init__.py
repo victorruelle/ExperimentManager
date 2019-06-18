@@ -7,7 +7,8 @@ import superjson
 from ExperimentManager.global_manager import global_manager
 from ExperimentManager.experiment import ExperimentManager
 from ExperimentManager.utils import pprint_dict
-from ExperimentManager.gpu_setup import setup
+from ExperimentManager.gpu_setup import keras_setup
+from ExperimentManager.timer import get_timer
 
 
 def getManager(name = None,experiments_dir = None, project_dir = None, verbose = 1, **kwargs):
@@ -15,7 +16,7 @@ def getManager(name = None,experiments_dir = None, project_dir = None, verbose =
         name = get_call_id()
         if name is None:
             print('WARNING : Could not find an Experiment automatically, creating an empty, dummy experiment manager')
-            return getManager(name = 'empty_manager', ghost = True, verbose= False, verbose=verbose)
+            return getManager(name = 'empty_manager', ghost = True, verbose=verbose)
 
     if name in global_manager.experiments:
         return global_manager.experiments[name]
@@ -39,10 +40,10 @@ def getManagerFromConfig(config_file):
 
     # Looking for gpu setup config
 
-    if 'gpu' in config:
-        assert 'devices' in config['gpu']
-        assert 'allow_growth' in config['gpu']
-        setup(config['gpu']['devices'],config['gpu']['allow_growth'])
+    # if 'gpu' in config:
+    #     assert 'devices' in config['gpu']
+    #     assert 'allow_growth' in config['gpu']
+    #     keras_setup(config['gpu']['devices'],config['gpu']['allow_growth'])
 
     # Creating the experiment
 
@@ -54,7 +55,7 @@ def getManagerFromConfig(config_file):
     experiments_dir = None if not 'experiments_dir' in config else config['experiments_dir']
     verbose = True if not 'verbose' in config else config['verbose']
     
-    kwargs = {  key:config[key] for key in ['skip_dirs','ghost','load_dir','tensorboard'] if key in config }
+    kwargs = {  key:config[key] for key in ['skip_dirs','ghost','load_dir','tensorboard','gpu_options'] if key in config }
     manager = ExperimentManager(name,experiments_dir = experiments_dir, project_dir = project_dir, verbose = verbose, **kwargs)
 
     # Adding the entry in the global manager

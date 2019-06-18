@@ -1,9 +1,11 @@
 import inspect
 import os
+import logging
 import threading
 
 from keras.backend import eval
 from keras.models import Model as keras_Model
+from keras.engine.training import Model as keras_Model_2
 from keras.models import save_model
 from matplotlib.pyplot import Figure as plt_Figure
 from numpy import ndarray
@@ -11,7 +13,7 @@ from numpy import save as np_save
 from superjson import json
 from tensorflow import Tensor
 
-from utils import setup_logger
+from ExperimentManager.utils import setup_logger
 
 class Saver():
 	''' A class to thoughtlessly save any object.
@@ -97,10 +99,10 @@ class Saver():
 			if isinstance(obj,plt_Figure):
 				method = 'matplotlib'
 		
-			if isinstance(obj,keras_Model):
+			elif isinstance(obj,keras_Model) or isinstance(obj,keras_Model_2):
 				method = 'keras'
 				
-			if isinstance(obj,str):
+			elif isinstance(obj,str):
 				method = 'string'
 			
 			elif isinstance(obj,list) or isinstance(obj,ndarray):
