@@ -11,6 +11,7 @@ class StreamToLogger(object):
 		self.logger = logger
 		self.log_level = log_level
 		self.ref_std = ref_std
+		self.buffer = ''
 
 		# Inherinting the ref_stds methods
 		for attribute in methods:
@@ -19,5 +20,20 @@ class StreamToLogger(object):
 
 	def write(self, buf):
 		self.ref_std.write(buf)
-		for line in buf.rstrip().splitlines():
-			self.logger.log(self.log_level, line.rstrip())
+		# for line in buf.rstrip().splitlines():
+		for line in buf.splitlines(True):
+			line  = self.buffer+line
+			self.buffer = ''
+
+			while '\r' in line:
+				line = line[line.index('\r')+1:]
+
+			while  '\b' in line:
+				i = line.index('\b')
+				line = line[:i-1]+line[i+1:]
+
+			if '\n' in line:
+				self.logger.log(self.log_level, line.rstrip())
+
+			else:
+				self.buffer = line

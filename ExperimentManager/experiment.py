@@ -82,13 +82,13 @@ class ExperimentManager(object):
 			self.experiment_name = '{} ({})'.format(experiment_name,index)
 			
 			# Creating subdirectories for saved files and saved metrics
-			self.runs_dir = os.path.join(self.experiment_dir)
+			self.runs_dir = os.path.join(self.experiment_dir,'runs')
 			os.makedirs(self.runs_dir,exist_ok=True)
 			self.save_dir = os.path.join(self.runs_dir,'global','files')
 			os.makedirs(self.save_dir,exist_ok=True)
 			self.metrics_dir = os.path.join(self.runs_dir,'global','metrics')
 			os.makedirs(self.metrics_dir,exist_ok=True)
-			self.sources_dir = os.path.join(self.runs_dir,'sources')
+			self.sources_dir = os.path.join(self.experiment_dir,'sources')
 			os.makedirs(self.sources_dir,exist_ok=True)
 			
 		else:
@@ -445,10 +445,11 @@ class ExperimentManager(object):
 		try:
 			call_id = run(**call_options)
 			self.info('Finished run for command {} with id {} after {} seconds'.format(run.command.__name__, run.id, run.calls_info[call_id]["duration"]))
+			return run.results[call_id]
 		except Exception as err:
 			print_clean_stack(err)
 			print('Error type {} : {}'.format(sys.exc_info()[0],sys.exc_info()[1]))
-			self.info('Run for command {} with id {} failed after {} seconds with error type {} : {}'.format(run.command.__name__, run.id, run.calls_info[call_id]["duration"],sys.exc_info()[0],sys.exc_info()[1]))
+			self.info('Run for command {} with id {} failed with error type {} : {}'.format(run.command.__name__, run.id,sys.exc_info()[0],sys.exc_info()[1]))
 		
 	
 	
@@ -475,10 +476,11 @@ class ExperimentManager(object):
 		try:
 			call_id = run(**call_options)
 			self.info('Finished run for command {} with id {} after {} seconds'.format(run.command.__name__, run.id, run.calls_info[call_id]["duration"]))
+			return run.results[call_id]
 		except Exception as err:
 			print_clean_stack(err)
 			print('Error type {} : {}'.format(sys.exc_info()[0],sys.exc_info()[1]))
-			self.info('Run for command {} with id {} failed after {} seconds with error type {} : {}'.format(run.command.__name__, run.id, run.calls_info[call_id]["duration"],sys.exc_info()[0],sys.exc_info()[1]))
+			self.info('Run for command {} with id {} failed with error type {} : {}'.format(run.command.__name__, run.id,sys.exc_info()[0],sys.exc_info()[1]))
 		
 		
 		
