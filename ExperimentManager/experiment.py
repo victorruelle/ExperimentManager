@@ -172,7 +172,7 @@ class ExperimentManager(object):
 			'allow_growth' : True,
 		}
 		if "gpu_options" in kwargs:
-			self.gpu_options.update({  key:kwargs['gpu_options'][key] for key in ['devices','allow_growth'] if key in kwargs['gpu_options'] })
+			self.gpu_options.update({  key:kwargs['gpu_options'][key] for key in ['devices','allow_growth','memory_fraction_per_gpu'] if key in kwargs['gpu_options'] })
 		
 		self.keras_setup()
 
