@@ -20,6 +20,10 @@ def getManager(name = None,experiments_dir = None, project_dir = None, verbose =
     if name in global_manager.experiments:
         return global_manager.experiments[name]
 
+    elif len(global_manager.experiments)>0:
+        print("We do not want two experiments running at the same time, we have returned the current running one; please close it off first.")
+        return global_manager.experiments[0]
+
     else:
         caller_filename = os.path.abspath(inspect.stack()[1].filename)
         project_dir = project_dir if project_dir is not None else os.path.abspath(os.path.dirname(inspect.stack()[1].filename))

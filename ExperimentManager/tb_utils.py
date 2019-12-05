@@ -74,7 +74,7 @@ except:
 			step : int
 				training iteration
 			"""
-			assert not tb_writer._closed, 'Writer is closed'
+			# assert not tb_writer._closed, 'Writer is closed'
 			summary = Summary(value=[Summary.Value(tag=tag, simple_value=value)])
 			tb_writer.add_summary(summary, step)
 
