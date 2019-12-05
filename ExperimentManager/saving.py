@@ -3,15 +3,10 @@ import os
 import logging
 import threading
 
-from keras.backend import eval
-from keras.models import Model as keras_Model
-from keras.engine.training import Model as keras_Model_2
-from keras.models import save_model
 from matplotlib.pyplot import Figure as plt_Figure
 from numpy import ndarray
 from numpy import save as np_save
 from superjson import json
-from tensorflow import Tensor
 
 from ExperimentManager.utils import setup_logger
 
@@ -32,8 +27,6 @@ class Saver():
 		self.savers['json'] = Method(save_json,'json','json')
 		self.savers['numpy'] = Method(save_numpy,'numpy','npy')
 		self.savers['string'] = Method(save_str,'string','txt')
-		self.savers['keras'] = Method(save_keras,'keras','h5')
-		self.savers['dot'] = Method(save_dot,'dot','png')
 		
 		if not 'info' in kwargs or not 'warn' in kwargs:
 			self.logger = setup_logger('ExperimentSaver')
@@ -82,15 +75,6 @@ class Saver():
 		
 		# Finding the right saving method (could be called even if an extension was given (but no method was found)
 		if method is None:			
-			'''
-			Converting types
-			'''
-			if isinstance(obj,Tensor):
-				try:
-					obj = eval(obj)
-				except:
-					self.warn('in Saver, Tensor could not be evaluated, string representation will be used instead...')
-					obj = str(obj)				
 			
 			'''
 			Finding a method
@@ -98,9 +82,6 @@ class Saver():
 
 			if isinstance(obj,plt_Figure):
 				method = 'matplotlib'
-		
-			elif isinstance(obj,keras_Model) or isinstance(obj,keras_Model_2):
-				method = 'keras'
 				
 			elif isinstance(obj,str):
 				method = 'string'
@@ -217,10 +198,6 @@ def save_plt(fig,path,*args,**kwargs):
 	assert isinstance(fig,plt_Figure), type(fig)
 	fig.savefig(path,*args,**kwargs)
 	
-def save_keras(model,path, **kwargs):
-	# assert isinstance(model,keras_Model), type(model)
-	save_model(model,path,**{  key:kwargs[key] for key in ['include_optimizer'] if key in kwargs })
-	
 def save_str(message,path):
 	with open(path,'w') as output:
 		output.write(str(message))
@@ -232,6 +209,3 @@ def save_numpy(arr,path):
 def save_json(d,path):
 	assert isinstance(d,dict), type(d)
 	json.dump(d,path,indent = 1, pretty = True, verbose = False)
-
-def save_dot(dot,path):
-	dot.write(path,format = 'png')

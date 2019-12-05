@@ -11,16 +11,14 @@ setuptools.setup(
      scripts=['ExperimentManager'] ,
      author="Victor Ruelle",
      author_email="ruelle.victor@gmail.com",
-     description="A thoughtless and all-round experiment manager for python",
+     description="A thoughtless and all-round experiment manager for Python.",
      long_description=readme(),
      license='MIT',
      install_requires=[
-          'numpy',
-	  'tensorflow',
-	  'keras',
-	  'superjson',
-	  'wrapt',
-	  'matplotlib'
+        'numpy',
+        'superjson',
+        'wrapt',
+        'matplotlib'
       ],
      long_description_content_type="text/markdown",
      url="https://github.com/victorruelle/ExperimentManager",

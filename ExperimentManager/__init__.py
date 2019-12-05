@@ -7,7 +7,6 @@ import superjson
 from ExperimentManager.global_manager import global_manager
 from ExperimentManager.experiment import ExperimentManager
 from ExperimentManager.utils import pprint_dict
-from ExperimentManager.gpu_setup import keras_setup
 from ExperimentManager.timer import get_timer
 
 
@@ -37,13 +36,6 @@ def getManagerFromConfig(config_file):
 
     assert os.path.isfile(config_file), 'Config file was not found at {}'.format(config_file)
     config = superjson.json.load(config_file,verbose=False)
-
-    # Looking for gpu setup config
-
-    # if 'gpu' in config:
-    #     assert 'devices' in config['gpu']
-    #     assert 'allow_growth' in config['gpu']
-    #     keras_setup(config['gpu']['devices'],config['gpu']['allow_growth'])
 
     # Creating the experiment
 

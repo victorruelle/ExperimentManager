@@ -11,8 +11,29 @@ import traceback
 import subprocess
 import re
 
-import tensorflow as tf
-FileWriter = tf.summary.FileWriter
+FileWriter = None
+try:
+	import tensorflow as tf
+	is_tensorflow = True
+	FileWriter = tf.summary.FileWriter
+except:
+	is_tensorflow = False
+
+try:
+	import torch
+	if not is_tensorflow:
+		from torch.utils.tensorboard import FileWriter
+	is_torch = True
+except:
+	is_torch = False
+
+try:
+	import keras
+	is_keras = True
+except:
+	is_keras = False
+
+
 
 from ExperimentManager.utils import timestamp, setup_logger, pprint_dict, get_options, datestamp, print_clean_stack
 from ExperimentManager.run import Run
@@ -21,7 +42,7 @@ from ExperimentManager.stdout_capturing import StreamToLogger
 from ExperimentManager.saving import Saver, VersionsHandler
 from ExperimentManager.metrics import MetricsManager
 from ExperimentManager.global_manager import global_manager
-from ExperimentManager.gpu_setup import keras_setup,create_session
+from ExperimentManager.gpu_setup import keras_setup,cuda_setup
 
 class ExperimentManager(object):
 
@@ -147,6 +168,9 @@ class ExperimentManager(object):
 		self._get_call_id_depths = []
 
 
+		# Verifying necessary librairies are present
+		assert (not self.tensorboard) or (self.tensorboard and FileWriter is not None), 'Can not use tensorboard feature without having either Tensorflow or Torch installed.'
+
 		# Setting up metrics support
 		if not self.ghost:
 
@@ -170,12 +194,14 @@ class ExperimentManager(object):
 		self.gpu_options = {
 			'devices' : None,
 			'allow_growth' : True,
+			'memory_fraction_per_gpu' : 1
 		}
 		if "gpu_options" in kwargs:
 			self.gpu_options.update({  key:kwargs['gpu_options'][key] for key in ['devices','allow_growth','memory_fraction_per_gpu'] if key in kwargs['gpu_options'] })
 		
-		self.keras_setup()
-
+		cuda_setup(self.gpu_options["devices"])
+		if is_keras:
+			keras_setup(self.gpu_options['allow_growth'],self.gpu_options["memory_fraction_per_gpu"])
 		
 		# Saving the project sources
 		if not self.ghost:
@@ -748,16 +774,6 @@ class ExperimentManager(object):
 		else:
 			run_id = self.get_call_id()
 			return os.path.join(self.runs[run_id].save_dir,path,*paths)	if self.runs[run_id].save_dir is not None else None
-
-	'''
-	GPU Options
-	'''
-
-	def keras_setup(self):
-		keras_setup(**self.gpu_options)
-
-	def create_session(self, graph = None):
-		return create_session(graph = graph,**self.gpu_options)
 
 	'''
 	Cleaning
