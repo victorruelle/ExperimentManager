@@ -609,7 +609,7 @@ class ExperimentManager(object):
 	Saving
 	'''
 
-	def get_save_path(self,path,*paths):
+	def get_save_path(self,*paths):
 		''' Use the save dir to find absolute save path for files suing relative paths
 		'''
 		
@@ -619,7 +619,7 @@ class ExperimentManager(object):
 		save_dir = self.save_dir if run_id == -1 else self.runs[run_id].save_dir
 		if save_dir is None:
 			return None
-		return os.path.join(save_dir,path,*paths)
+		return os.path.join(save_dir,*paths)
 	
 	def add_source(self,source):
 		''' Add a file to the sources directory of this experiment. Sources are meant to be files that are required for the experiment to be run in the event that you would want to reproduce it.

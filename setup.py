@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="ExperimentManager",
-    version="0.0.6.0",
+    version="0.0.6.1",
     author="Victor Ruelle",
     author_email="ruelle.victor@gmail.com",
     description="A thoughtless and all-round experiment manager for Python.",
